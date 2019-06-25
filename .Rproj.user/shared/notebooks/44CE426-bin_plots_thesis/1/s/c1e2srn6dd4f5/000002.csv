@@ -1,6 +1,0 @@
-"0","#unreg"
-"0","setwd(""/Users/brentscott/Documents/UMASS/Lab/R/data/Data for bin plots/unreg"")"
-"0","unreg_dat <- mass_import(""unreg"", 7.4, 0, 68)"
-"0","#plot"
-"0","unreg_plot <- bin_plot(unreg_dat)"
-"0","unreg_plot"

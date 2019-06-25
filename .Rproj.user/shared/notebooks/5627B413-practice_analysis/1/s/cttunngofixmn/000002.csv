@@ -1,8 +1,0 @@
-"0","ewt_7.4_fit <- fit_hill2(only_ewt_7.4)"
-"0","ewt_6.8_fit <- fit_hill2(ewt_6.8)"
-"0","ewt_7.4_ceof <- get_coefficients(ewt_7.4_fit, ""ewt_7.4"")"
-"0","ewt_6.8_coef <- get_coefficients(ewt_6.8_fit, ""ewt_6.8"")"
-"0","ewt_7.4_predict <- predict_hill(ewt_7.4_fit)"
-"0","ewt_6.8_predict <- predict_hill(ewt_6.8_fit)"
-"0","no <- fit_hill(wrong)"
-"0","no_predict <- predict_hill(no)"
