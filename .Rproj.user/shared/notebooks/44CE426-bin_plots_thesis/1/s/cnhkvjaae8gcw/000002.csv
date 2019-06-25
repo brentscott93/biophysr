@@ -1,0 +1,6 @@
+"0","#filter to include only 6.8 data"
+"0","all_6.8_data <- all_data %>% "
+"0","                  filter(pH == 6.8)"
+"0","all_6.8_data$Tm <- factor(all_6.8_data$Tm, levels = c(""ewt"", ""h153a"", ""h276a"", ""dbl""))"
+"0","all_6.8_bin_plot <- bin_plot(all_6.8_data)"
+"0","all_6.8_bin_plot "

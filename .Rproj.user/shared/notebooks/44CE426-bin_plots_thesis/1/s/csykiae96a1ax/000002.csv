@@ -1,0 +1,4 @@
+"0","all_7.4_data_anotherlook <- all_data %>% "
+"0","                  filter(pH == 7.4)"
+"0","all_7.4_plot_anotherlook <- bin_plot(all_7.4_data_anotherlook)"
+"0","all_7.4_plot_anotherlook "

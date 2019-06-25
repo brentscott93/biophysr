@@ -1,0 +1,4 @@
+"0","  safely(map(pca_velocity, fit_hill2))
+"
+"2","Error in map(pca_velocity, fit_hill2) : object 'pca_velocity' not found
+"

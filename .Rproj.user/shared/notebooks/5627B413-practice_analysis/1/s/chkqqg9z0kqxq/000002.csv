@@ -1,0 +1,14 @@
+"0","summary_dat <- thesis_dat %>%"
+"0","  group_by(Tm, pH, pCa) %>%"
+"0","  analyze_motility()"
+"2","Joining, by = c(""Tm"", ""pH"", ""pCa"")
+"
+"2","Joining, by = c(""Tm"", ""pH"", ""pCa"")
+"
+"0","only_ewt_7.4 <- summary_dat %>%"
+"0","  filter(Tm == ""ewt"", pH == 7.4)"
+"0","  only_ewt_7.4$average_velocity[1] = 0"
+"0","  only_ewt_7.4$pCa = as.numeric(only_ewt_7.4$pCa)"
+"0","ewt_6.8 <- summary_dat %>% "
+"0","  filter(Tm == ""ewt"", pH ==6.8)"
+"0","  ewt_6.8$pCa = as.numeric(only_ewt_7.4$pCa)"

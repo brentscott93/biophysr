@@ -1,0 +1,9 @@
+"0","only7.4 <- all_data %>% 
+              filter(pH == 7.4, pCa == 4) %>% 
+              group_by(FileName, Tm, pCa) %>% 
+              summarize(AvgSpeed7.4 = mean(AvgSpeed)) %>% 
+              separate(FileName, c('protein', 'condition', 'calcium', 'video'), sep = '_') %>% 
+              select(Tm, video, AvgSpeed7.4)
+"
+"2","Error in eval_tidy(enquo(var), var_env) : object 'FileName' not found
+"
