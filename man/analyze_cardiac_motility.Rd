@@ -10,8 +10,9 @@ analyze_cardiac_motility(data)
 \item{data}{}
 }
 \value{
-a summary dataframe. Works the same as analyze_motility() but with Distance >=1 inclusion criteria
+a summary dataframe.
 }
 \description{
-Analyze cardiac motility
+Works the same as analyze_motility() but with Distance >=1 inclusion criteria
+get
 }

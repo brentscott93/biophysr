@@ -10,7 +10,7 @@ import_tsv(working_dir)
 \item{working_dir}{characters string of path to directory where files are located}
 }
 \value{
-One data frame. Recommended to use dyplr separate() on 'filenames[i]' columns.
+One data frame. Recommended to use tidyr::separate() on 'filenames[i]' columns.
 }
 \description{
 Imports and concactenates all .tsv files in the current working directory
@@ -18,8 +18,11 @@ Imports and concactenates all .tsv files in the current working directory
 \examples{
 import_tsv()
 
+
 motility_data <- import_tsv("my_wd") \%>\%
 separate('filenames[i]', c("date, pH, mutation, pCa"), sep = "_")
+
+
 
 
 }

@@ -10,5 +10,5 @@ summarize_motility(data)
 \item{analyze_motility_data}{}
 }
 \description{
-Summarize output from 'analyze_motility'
+Summarizes the data from analyze_motility() that can be used for plotting average of all analyzed data.
 }

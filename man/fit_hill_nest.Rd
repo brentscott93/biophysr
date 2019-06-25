@@ -2,13 +2,17 @@
 % Please edit documentation in R/fit_hill_nest.R
 \name{fit_hill_nest}
 \alias{fit_hill_nest}
-\title{Fit Hill Equation to nested data}
+\title{Fit Hill Equation to Nested Data}
 \usage{
 fit_hill_nest(data, nest_key)
 }
 \arguments{
-\item{nest_name}{}
+\item{nest_key}{name of the "nest key" used to create the oringal nested data in nest()}
 }
 \description{
-Fit Hill Equation to nested data
+Fits the Hill Equation using drc::drm() to all nested data and adds a column to the dataframe with model specifics called "drm_model". The Hill Equation parameters are extracted and added as new columns. The last column that is added is "predictions". This is a list of coordinates that can be graphed to show the "fit" of the line to the data.
+}
+\examples{
+
+fit_motility <- fit_hill_net(motility_test_nest, "pca_velocity")
 }

@@ -2,16 +2,27 @@
 % Please edit documentation in R/conc_calc.R
 \name{conc_calc}
 \alias{conc_calc}
-\title{Concentration Calculator (c1 * v1 = c2 * v2)}
+\title{Dilution/Concentration Calculator}
 \usage{
 conc_calc(c1, v1, c2, v2)
 }
 \arguments{
-\item{v2}{}
+\item{c1}{initial concentration}
+
+\item{v1}{initial volume}
+
+\item{c2}{final concentration}
+
+\item{v2}{final volume}
+}
+\value{
+a number
 }
 \description{
-Concentration Calculator (c1 * v1 = c2 * v2)
+Calculates unknown concentrations or volumes using (c1 * v1 = c2 * v2). Make sure the numbers you give are in the same units! This function will not know otherwise. Whichever parameter is set to 0, the function will solve for.
 }
 \examples{
+
+conc_calc(c1 = 100, v1 = 2, c2 = 0, v2 = 1000)
 
 }

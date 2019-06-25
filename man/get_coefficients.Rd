@@ -13,5 +13,5 @@ get_coefficients(drm_model, conditions)
 a tibble of coefficients with an identifier column
 }
 \description{
-Make tibble of Hill Equation parameters from a fitted drm model
+Use this to extract hill parameters from a drm model like that produced by fit_hill()
 }

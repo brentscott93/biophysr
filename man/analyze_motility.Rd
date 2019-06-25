@@ -21,8 +21,9 @@ Automates the analysis of motility data from the WRMTRCK output
 \examples{
 analyze_motility()
 
-my_data <- wrmtrck_data \%>\%
-group_by("pH", "mutation", "pCa") \%>\%
+data <- data(motility_test)
+analyzed_data <- data \%>\%
+group_by("tm", "pH", "pCa", "video") \%>\%
 analyze_motility()
 
 }

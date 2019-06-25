@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit_hill.R
 \name{fit_hill}
 \alias{fit_hill}
-\title{Fits Hill Equation to data}
+\title{Fits Hill Equation}
 \usage{
 fit_hill(data)
 }
@@ -13,5 +13,12 @@ fit_hill(data)
 a drm object (list)
 }
 \description{
-Fits Hill Equation to data
+Fits Hill equation using drc::drm(). This function for a single condition in a dataframe. See fit_hill_nest() to fit multiple variables.
+Data frame must have a "average_velocity" and "pCa" column. If not, use drc::drm() directly. This function simply calls the drm() function and provides some of the parameter inputs for quicker analysis.
+}
+\examples{
+
+x <- data(motility_test)
+fit_data <- fit_hill(x)
+
 }

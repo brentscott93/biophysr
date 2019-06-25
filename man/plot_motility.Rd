@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_motility.R
 \name{plot_motility}
 \alias{plot_motility}
-\title{Plot  a single velocity-pCa curve}
+\title{Plot a single velocity-pCa curve}
 \usage{
 plot_motility(data, predict_data)
 }
@@ -13,5 +13,5 @@ plot_motility(data, predict_data)
 a ggplot scatterplot fit with the hill equation
 }
 \description{
-Plot  a single velocity-pCa curve
+Data needs to be from analyze_motility() and predict_hill()
 }
