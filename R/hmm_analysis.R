@@ -45,7 +45,9 @@ writeLines(paste("Loading Data for", condition, "Observation", obs))
 
 myo5_data <- read.delim(file, header = FALSE)
 
-myo5_data <- as.vector(scale((myo5_data$V1), scale = FALSE))
+#convert data from mV -> nm and standardize mean to 0.
+myo5_data <-  as.vector(scale((myo5_data$V1 * 31), scale = FALSE))
+
 
 ## RUNNING MEAN & VAR ##
 writeLines("Calculating Running Mean")
@@ -191,8 +193,11 @@ on_times <- rle_object_4_duration %>%
 #calculate event displacement
 
 #If the rle_object's last row is in state 1, get rid of that last row. This needs to end in state 2 to capture the end of the last event
-rle_object_4_step_sizes <- if(tail(rle_object, 1)$values == 1) slice(rle_object, -length(rle_object$values)) else rle_object
-
+rle_object_4_step_sizes <- if(tail(rle_object, 1)$values == 1){
+  slice(rle_object, -length(rle_object$values))
+  } else {
+    rle_object
+}
 #Calculate the cumulative sum of the run length encoder
 #And splits the tibble into two seperate tables to isolate state 1 info from state 2
 
@@ -232,11 +237,40 @@ for(i in seq_along(1:nrow(s1_regroup_data))){
 calculate_mean_differences <- tibble(avg_s1 = unlist(state_1_avg),
                                      avg_s2 = unlist(step_sizes),
                                      diff = avg_s2 - avg_s1)
+## DIRECTION CORRECTION ##
+
+positive_events <- sum(calculate_mean_differences$diff > 0)
+negative_events <- sum(calculate_mean_differences$diff < 0)
+direction_correction <- if(negative_events > positive_events){
+  calculate_mean_differences$diff * -1
+} else {
+   calculate_mean_differences$diff
+}
+
+
+flip_raw <- if(negative_events > positive_events){
+  myo5_data * -1
+} else {
+  myo5_data
+}
+
+flip_state_1_avg <- if(negative_events > positive_events){
+  unlist(state_1_avg) * -1
+} else {
+  unlist(state_1_avg)
+}
+
+flip_step_sizes <- if(negative_events > positive_events){
+  unlist(step_sizes) * -1
+} else {
+  unlist(step_sizes)
+}
+
 
 #add step sizes to the on_times table
 
 measured_events <- on_times %>%
-  dplyr::mutate(step_size_nm = calculate_mean_differences$diff*31,
+  dplyr::mutate(step_size_nm = direction_correction,
          condition = paste0(condition, "_", obs)) %>%
   dplyr::select(condition, everything())
 
@@ -252,12 +286,12 @@ writeLines("Plotting Hmm Overlay...")
 dp2plot <- seconds_2_plot*5000
 
 s1_avg_4plot <- tibble(state_order = seq(from = 1, length.out = length(state_1_avg), by = 2),
-                       avg = unlist(state_1_avg))
+                       avg = flip_state_1_avg)
 
 
 
 s2_avg_4plot <- tibble(state_order = seq(from = 2, length.out = length(step_sizes), by = 2),
-                       avg = unlist(step_sizes))
+                       avg = flip_step_sizes)
 
 
 hmm_overlay <- bind_rows(s1_avg_4plot, s2_avg_4plot) %>%
@@ -273,32 +307,32 @@ overlay <- unlist(overlay)
 
 
 plot1 <- ggplot()+
-  geom_line(aes(x = 1:dp2plot, y = myo5_data[1:dp2plot]))+
+  geom_line(aes(x = 1:dp2plot, y = flip_raw[1:dp2plot]))+
   geom_line(aes(x = 1:dp2plot, y = overlay[1:dp2plot]), color = overlay_color)+
   xlab("")+
-  ylab("mV")+
+  ylab("nm")+
   ggtitle(paste0(condition, "_", obs))+
   theme_bw()
 
 plot2 <- ggplot()+
-  geom_line(aes(x = dp2plot:(2*dp2plot), y = myo5_data[dp2plot:(2*dp2plot)]))+
+  geom_line(aes(x = dp2plot:(2*dp2plot), y = flip_raw[dp2plot:(2*dp2plot)]))+
   geom_line(aes(x = dp2plot:(2*dp2plot), y = overlay[dp2plot:(2*dp2plot)]), color = overlay_color)+
   xlab("")+
-  ylab("mV")+
+  ylab("nm")+
   theme_bw()
 
 plot3 <- ggplot()+
-  geom_line(aes(x = (2*dp2plot):(3*dp2plot), y = myo5_data[(2*dp2plot):(3*dp2plot)]))+
+  geom_line(aes(x = (2*dp2plot):(3*dp2plot), y = flip_raw[(2*dp2plot):(3*dp2plot)]))+
   geom_line(aes(x = (2*dp2plot):(3*dp2plot), y = overlay[(2*dp2plot):(3*dp2plot)]), color = overlay_color)+
   xlab("")+
-  ylab("mV")+
+  ylab("nm")+
   theme_bw()
 
 plot4 <- ggplot()+
-  geom_line(aes(x = (3*dp2plot):(4*dp2plot), y = myo5_data[(3*dp2plot):(4*dp2plot)]))+
+  geom_line(aes(x = (3*dp2plot):(4*dp2plot), y = flip_raw[(3*dp2plot):(4*dp2plot)]))+
   geom_line(aes(x = (3*dp2plot):(4*dp2plot), y = overlay[(3*dp2plot):(4*dp2plot)]), color = overlay_color)+
   xlab("")+
-  ylab("mV")+
+  ylab("nm")+
   theme_bw()
 
 
