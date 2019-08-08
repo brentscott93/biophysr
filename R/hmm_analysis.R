@@ -2,23 +2,23 @@
 
 ## USER INPUTS ##
 
-condition <- "flip2"
+condition <- "sim"
 
 obs <- 1
 
-working_directory <- "/Users/brentscott/Desktop/simulation/flip2 copy"
-hmm_initial_parameters <- c(0.9, 0.1,       #Initial state probabilities
+working_directory <- "/Users/brentscott/Desktop/simulation/300 events, 300 length, perfect 7 step "
+hmm_initial_parameters <- c(0.99, 0.01,       #Initial state probabilities
                             0.99, 0.01, #transition probs s1 to s1/s2. These are guesses knowing they are stable states
                             0.01, 0.99) #transition probs s2 to s1/s2. Again a guess
 
 
 
 
-seed <- 7543
+seed <- 4532
 
-window_look <- 100 #number of windows to plot for sneak peek
+window_look <- 1000 #number of windows to plot for sneak peek
 
-seconds_2_plot <- 1
+seconds_2_plot <- 15
 
 overlay_color <- "lawngreen"
 
@@ -45,18 +45,20 @@ writeLines(paste("Loading Data for", condition, "Observation", obs))
 
 myo5_data <- read.delim(file, header = FALSE)
 
-#convert data from mV -> nm and standardize mean to 0.
+#convert data from mV -> nm and standardize mean to 0. Currently the mV to nm conversion for trap is 31 nm/mV (Summer 2019)
 myo5_data <-  as.vector(scale((myo5_data$V1 * 31), scale = FALSE))
+
+
 
 
 ## RUNNING MEAN & VAR ##
 writeLines("Calculating Running Mean")
 
-run_mean <- running(myo5_data, fun = mean, width = 150, by = 75)
+run_mean <- running(myo5_data, fun = mean, width = 120, by = 60)
 
 writeLines("Calculating Running Variance")
 
-run_var <- running(myo5_data, fun = var, width = 150, by = 75)
+run_var <- running(myo5_data, fun = var, width = 120, by = 60)
 
 
 running_table <- data.frame(run_mean = run_mean,
@@ -80,7 +82,7 @@ sd_run_var <- sd(run_var)
 
 
 estimate_hmm_gaussians <- c(mean_run_var, sd_run_var, mean_run_mean, sd_run_mean,
-                            mean_run_var/2, sd_run_var/2, mean_run_mean*1.25, sd_run_mean/2)
+                            mean_run_var/2, sd_run_var/2, 7, sd_run_mean)
 
 myo5_hmm <- setpars(myo5_hmm, c(hmm_initial_parameters, estimate_hmm_gaussians))
 
@@ -92,12 +94,12 @@ hmm_fit <- fit(myo5_hmm)
 hmm_posterior <- posterior(hmm_fit)
 
 writeLines("Saving HMM Summary")
-sink("hmm_summary.txt")
+sink(paste0(condition, "_", obs, "_", "hmm_summary.txt"))
 summary(hmm_fit)
 sink()
 
 
-## PLOT FIRST AND LAST 1000 windows ~15 seconds @ 150 window width  ##
+## PLOT FIRST AND LAST x #windows  @ 120 window width  ##
 writeLines("Plotting...")
 
 ## Calculate conversion between window length and data points
@@ -144,7 +146,7 @@ last_states <- ggplot()+
 #combine first and last plots
 final_plot  <- arrangeGrob(first_raw, first_states, last_raw, last_states, ncol = 1)
 
-ggsave("plot_hmm.png", final_plot, width = 12)
+ggsave(paste0(condition, "_", obs, "_", "plot_hmm.png"), final_plot, width = 12)
 
 
 ## COUNT EVENTS ##
@@ -161,7 +163,7 @@ count_events <- as.data.frame(count_events) %>%
   mutate(condition = paste0(condition, "_", obs))
 
 
-write.csv(count_events, "event_count.csv")
+write.csv(count_events, paste0(condition, "_", obs, "_", "event_count.csv"))
 
 
 ## MEASURE EVENTS ##
@@ -207,14 +209,23 @@ split_data <- rle_object_4_step_sizes %>%
   split(rle_object_4_step_sizes$values)
 
 #data is recmombined in a state_1 column and a state_2
-#the values in these columsn represent the last data point in either state 1 or state 2
+#the values in these columns represent the last data point (in window lengths) in either state 1 or state 2
 #So the range of values between the end of state 1 (or start of state 2) and the end of state 2 is the event duration
 regroup_data <- bind_cols(state_1_end = split_data[[1]]$cumsum, state_2_end = split_data[[2]]$cumsum)
 
 #loop over regrouped data to find the mean of the events displacements
 step_sizes <- vector("list", length = nrow(regroup_data)) #allocate space for output storage of loop
 for(i in seq_along(1:nrow(regroup_data))){
-  step_sizes[[i]] <- mean(run_mean_tibble$value[(regroup_data$state_1_end[i]+1) : (regroup_data$state_2_end[i])])
+  win_values <- c(run_mean_tibble$value[(regroup_data$state_1_end[i]+1) : (regroup_data$state_2_end[i])])
+
+  drop_lowest <- if(length(win_values[win_values != min(win_values)]) == 0){
+    win_values
+  } else {
+    win_values[win_values != min(win_values)]
+  }
+
+
+  step_sizes[[i]] <- mean(drop_lowest)
 }
 
 #do opposite to get means of state 1 to subtract from s2 means.
@@ -241,6 +252,9 @@ calculate_mean_differences <- tibble(avg_s1 = unlist(state_1_avg),
 
 positive_events <- sum(calculate_mean_differences$diff > 0)
 negative_events <- sum(calculate_mean_differences$diff < 0)
+
+#if there are more negative step sizes than positive, actin filament assumed backward and all events flipped (multipled by -1)
+#also raw trace, state 1 averages, and step sizes flipped for hmm overlay
 direction_correction <- if(negative_events > positive_events){
   calculate_mean_differences$diff * -1
 } else {
@@ -268,7 +282,6 @@ flip_step_sizes <- if(negative_events > positive_events){
 
 
 #add step sizes to the on_times table
-
 measured_events <- on_times %>%
   dplyr::mutate(step_size_nm = direction_correction,
          condition = paste0(condition, "_", obs)) %>%
@@ -277,7 +290,7 @@ measured_events <- on_times %>%
 
 ## SAVE OUTPUT ##
 
-write_excel_csv(measured_events, "measured_events.csv")
+write_excel_csv(measured_events, paste0(condition, "_", obs, "_", "measured_events.csv"))
 
 
 ## PLOT OVERLAY ##
@@ -338,7 +351,10 @@ plot4 <- ggplot()+
 
 overlay_plots  <- arrangeGrob(plot1, plot2, plot3, plot4, ncol = 1)
 
-ggsave("hmm_overlay.png", overlay_plots, width = 12)
+ggsave(paste0(condition, "_", obs, "_", "hmm_overlay.png"), overlay_plots, width = 12)
 
 writeLines("Done")
+
+
+
 
