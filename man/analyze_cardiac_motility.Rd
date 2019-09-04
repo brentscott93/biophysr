@@ -14,5 +14,4 @@ a summary dataframe.
 }
 \description{
 Works the same as analyze_motility() but with Distance >=1 inclusion criteria
-get
 }
