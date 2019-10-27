@@ -1,0 +1,3 @@
+load("/Users/brentscott/Documents/UMASS/Lab/R/biophysr_package/biophysr/data/motility2.rda")
+load("/Users/brentscott/Documents/UMASS/Lab/R/biophysr_package/biophysr/data/motility2.rda")
+load("/Users/brentscott/Documents/UMASS/Lab/R/biophysr_package/biophysr/data/motility_test.rda")
