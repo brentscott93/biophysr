@@ -9,7 +9,7 @@
 #' @examples
 make_trap_observations <- function(wd){
 
-  writeLines("Creating Observations")
+  writeLines("Reading Data")
   setwd(wd)
   dir.create(paste0(wd, "/", "observations"))
 
@@ -17,7 +17,7 @@ make_trap_observations <- function(wd){
   f <- list.files(pattern = "*.txt")
   txts <- map(f, read.delim, header = FALSE)
 
-
+  writeLines("Creating Observations")
   str_trap <- function(x){
     substring <- str_sub(x, c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
 
@@ -71,7 +71,7 @@ make_trap_observations <- function(wd){
     group_split(observation) %>%
     bind_cols()
 
-
+  writeLines("Arranging Folders")
   wd <- getwd()
   obs_file_names <- vector("list")
   #make new folders
@@ -99,14 +99,14 @@ make_trap_observations <- function(wd){
     }
     }}
 
-  writeLines("Arranging Folders")
+
   #create obs
   create_obs <- vector("list")
   for(row in 1:nrow(diff_tibble2)){
     create_obs[[row]] <- dplyr::bind_rows(txts[diff_tibble2$index[[row]]:diff_tibble2$index1[[row]]])
   }
 
-
+  writeLines("Saving Data")
   for(c in seq_along(create_obs)){
     if(c < 10){
       write.table(create_obs[[c]],
