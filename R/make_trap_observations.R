@@ -59,11 +59,13 @@ make_trap_observations <- function(wd){
 
 
   diff_tibble2$observation[[1]] <- "begin_observation"
-  for(x in 2:nrow(diff_tibble2)){
+  for(x in 2:(nrow(diff_tibble2)-1)){
     if(diff_tibble2$observation[[x-1]] == "end_observation"){
       diff_tibble2$observation[[x]] <- "begin_observation"
     }
   }
+
+  diff_tibble2$observation[[length(diff_tibble2$observation)]] <- "end_observation"
 
   diff_tibble2 <- filter(diff_tibble2, observation != "observing") %>%
     group_split(observation) %>%
