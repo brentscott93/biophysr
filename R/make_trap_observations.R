@@ -19,7 +19,7 @@ make_trap_observations <- function(wd){
 
 
   str_trap <- function(x){
-    substring <- str_sub(f[[145]], c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
+    substring <- str_sub(x, c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
 
     substring[[6]] <- round(as.numeric(substring[[6]])/60, digits = 2)
 
