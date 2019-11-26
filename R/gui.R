@@ -16,7 +16,7 @@ gui <- function(){
   #group <- gnotebook(container=window, tab.pos = 3) ## a parent container
   group <- gvbox(cont = window)
  # glabel("", container=group)
-  #pb <- gprogressbar(cont=group)
+
   sb <- gstatusbar("Idle", container=window)
 
 
