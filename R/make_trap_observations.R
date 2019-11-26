@@ -19,13 +19,17 @@ make_trap_observations <- function(wd){
 
 
   str_trap <- function(x){
-    substring <- str_sub(x, c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
+    substring <- str_sub(f[[145]], c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
 
     substring[[6]] <- round(as.numeric(substring[[6]])/60, digits = 2)
 
-    find_decimal <- unname(str_locate(substring[[6]], "[.]")[,1])
+    if(as.numeric(substring[[6]]) == "0"){
+      substring[[6]] <- ".00"
+    } else {
+      find_decimal <- unname(str_locate(substring[[6]], "[.]")[,1])
 
-    substring[[6]] <- str_sub(substring[[6]], start = find_decimal, end = str_length(substring[[6]]))
+      substring[[6]] <- str_sub(substring[[6]], start = find_decimal, end = str_length(substring[[6]]))
+    }
 
     final_string <- as.numeric(str_c(substring, collapse = ""))
 
