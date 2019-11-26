@@ -8,11 +8,52 @@
 #' @export
 #'
 #' @examples
-analyze_mini_ensemble <- function(data){
+analyze_mini_ensemble <- function(data, mv2nm, detrend){
 
-raw_data <- tibble(trap = data,
+#PROCESS DATA
+#convert to mV to nm
+raw_data_4_processing <- tibble(raw_trap = data*mv2nm,
                    index = 1:length(trap))
 
+
+#estimate baseline mean
+
+loess_smoothed_data <- loess(trap ~ index, data = raw_data_4_processing, span = 0.05)
+
+loess_prediction_line <- predict(loess_smoothed_data)
+
+low_pts <- find_peaks(-loess_prediction_line, m = 12500)
+
+baseline_mean <- vector("list")
+for(i in seq_along(low_pts)){
+
+  baseline_data_chunk <- raw_data_4_processing$raw_trap[(low_pts[[i]] - 25) : (low_pts[[i]] + 25)]
+  baseline_mean[[i]] <- mean(baseline_data_chunk)
+
+}
+
+esimated_baseline <- mean(unlist(baseline_mean))
+
+#center to 0
+
+zero_centered <- raw_data_4_processing$raw_trap - estimated_baseline
+
+#detrend
+
+processed <- if(detrend == TRUE){
+
+  detrend_trap(zero_centered)
+
+} else if(detrend == FALSE){
+
+  zero_centered
+
+}
+
+#processing done
+
+raw_data <- raw_data_4_processing %>%
+mutate(trap = processed)
 
 #calculate running mean
 
@@ -125,5 +166,64 @@ final_events <-  rescaled_events %>%
   dplyr::select(state_1_end, state_2_end, raw_event_duration_ms, off_time_prior_ms, force, everything()) %>%
   rename(end_s1 = state_1_end,
          end_s2 = state_2_end)
+
+
+
+#plot
+
+filter_final_events1 <- filter(final_events, end_s2 < 20000)
+filter_final_events2 <- filter(final_events, end_s2 > 20000 & end_s2 < 40000)
+filter_final_events3 <- filter(final_events, end_s2 > max(final_events$end_s2) - 20000)
+
+run_mean_rescaled0 <- ifelse(run_mean_rescaled < 0 , 0, run_mean_rescaled)
+#1
+
+p1 <- ggplot()+
+  geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
+  geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]),color = "lightskyblue")+
+  geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
+  geom_point(aes(x = filter_final_events1$end_s2, y = filter_final_events1$peak_nm), color = "gold")+
+  geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
+  geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
+  theme_bw()+
+  ylab("Discplacement (nm)")+
+  xlab("Time (data points)")
+
+
+
+#2
+
+p2 <- ggplot()+
+  geom_line(aes(x = 20001:40000, y = rescaled_raw_data$trap[20001: 40000 ]))+
+  geom_line(aes(x = 20001: 40000, y = run_mean_rescaled0[20001:40000]),color = "lightskyblue")+
+  geom_line(aes(x = 20001:40000, y = rep(8, 20000)), color = "gray50")+
+  geom_point(aes(x = filter_final_events2$end_s2, y = filter_final_events2$peak_nm), color = "gold")+
+  geom_point(aes(x = filter_final_events2$end_s1, y = run_mean_rescaled0[filter_final_events2$end_s1]), color = "green", shape = 17, size = 2)+
+  geom_point(aes(x = filter_final_events2$end_s2, y = run_mean_rescaled0[filter_final_events2$end_s2]), color = "red", shape = 4)+
+  theme_bw()+
+  ylab("Discplacement (nm)")+
+  xlab("Time (data points)")
+
+
+#3
+p3 <- ggplot()+
+  geom_line(aes(x = (max(final_events$end_s2) - 20000):max(final_events$end_s2), y = rescaled_raw_data$trap[(max(final_events$end_s2) - 20000):max(final_events$end_s2)]))+
+  geom_line(aes(x = (max(final_events$end_s2) - 20000):max(final_events$end_s2), y = run_mean_rescaled0[(max(final_events$end_s2) - 20000):max(final_events$end_s2)]),color = "lightskyblue")+
+  geom_line(aes(x = (max(final_events$end_s2) - 20000):max(final_events$end_s2), y = rep(8, 20001)), color = "grey50")+
+  geom_point(aes(x = filter_final_events3$end_s2, y = filter_final_events3$peak_nm), color = "gold")+
+  geom_point(aes(x = filter_final_events3$end_s1, y = run_mean_rescaled0[filter_final_events3$end_s1]), color = "green", shape = 17, size = 2)+
+  geom_point(aes(x = filter_final_events3$end_s2, y = run_mean_rescaled0[filter_final_events3$end_s2]), color = "red", shape = 4)+
+  theme_bw()+
+  ylab("Discplacement (nm)")+
+  xlab("Time (data points)")
+
+
+plots <-  arrangeGrob(p1, p2, p3, ncol = 1)
+
+return_list <- list(data = final_events,
+                    plot = plots)
+
+return(return_list)
+
 
 }

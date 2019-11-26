@@ -4,7 +4,7 @@
 \alias{analyze_mini_ensemble}
 \title{Analyze Mini Ensemble Data - Finds Event Duration, Force, and Time Offs}
 \usage{
-analyze_mini_ensemble(data)
+analyze_mini_ensemble(data, mv2nm, detrend)
 }
 \arguments{
 \item{data}{}
