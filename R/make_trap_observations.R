@@ -8,7 +8,7 @@
 #'
 #' @examples
 make_trap_observations <- function(wd){
-  svalue(pb) <<- 10
+
   writeLines("Creating Observations")
   setwd(wd)
   dir.create(paste0(wd, "/", "observations"))
@@ -49,7 +49,7 @@ make_trap_observations <- function(wd){
 
   diff_vector[[length(extract_numbers)]] <- "end_observation"
 
-  svalue(pb) <<- 50
+
   diff_tibble2 <- tibble(index = 1:length(diff_vector),
                          observation = diff_vector)
 
@@ -79,7 +79,7 @@ make_trap_observations <- function(wd){
     obs_file_names[[r]] <- f[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
   }
 
-  svalue(pb) <<- 80
+
   #move files
 
   for(o in seq_along(obs_file_names)){
@@ -116,7 +116,7 @@ make_trap_observations <- function(wd){
                   sep = "\t")
     }
   }
-  svalue(pb) <<- 100
+
 writeLines("Done")
 }
 
