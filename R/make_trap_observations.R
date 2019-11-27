@@ -37,7 +37,7 @@ make_trap_observations <- function(wd){
 
   }
 
-  extract_numbers <- map(f, str_trap)
+  extract_numbers <- purrr::map(f, str_trap)
 
   diff_vector <- vector()
   for(i in seq_along(extract_numbers[-length(extract_numbers)])){
@@ -65,7 +65,7 @@ make_trap_observations <- function(wd){
     }
   }
 
-  diff_tibble2$observation[[length(diff_tibble2$observation)]] <- "end_observation"
+ # diff_tibble2$observation[[length(diff_tibble2$observation)]] <- "end_observation"
 
   diff_tibble2 <- filter(diff_tibble2, observation != "observing") %>%
     group_split(observation) %>%
@@ -116,7 +116,7 @@ make_trap_observations <- function(wd){
                    sep = "\t")
     } else {
       write.table(create_obs[[c]],
-                  to = paste0(wd, "/observations/", "obs_", o, "/", "grouped.txt"),
+                  file = paste0(wd, "/observations/", "obs_", c, "/", "grouped.txt"),
                   row.names = FALSE,
                   col.names = FALSE,
                   sep = "\t")
