@@ -38,11 +38,11 @@ make_trap_observations <- function(wd){
   }
 
   extract_numbers <- purrr::map(f, str_trap)
-  #dif2 <- vector("list") #for troubleshooting
+  dif2 <- vector("list") #for troubleshooting
   diff_vector <- vector()
   for(i in seq_along(extract_numbers[-length(extract_numbers)])){
     dif <- extract_numbers[[i+1]] - extract_numbers[[i]]
-   # dif2[[i]] <- extract_numbers[[i+1]] - extract_numbers[[i]] #for troubleshooting
+    dif2[[i]] <- extract_numbers[[i+1]] - extract_numbers[[i]] #for troubleshooting
 
     if(dif > 0.5){
       diff_vector[[i]] <- "end_observation"
@@ -54,14 +54,30 @@ make_trap_observations <- function(wd){
   diff_vector[[length(extract_numbers)]] <- "end_observation"
 
 
+
   diff_tibble2 <- tibble(index = 1:length(diff_vector),
                          observation = diff_vector)
 
-  if(diff_tibble2$observation[[(length(diff_tibble2$observation) - 1)]] == "end_observation"){
-    diff_tibble2 <- slice(diff_tibble2, -(nrow(diff_tibble2)))
-  } else {
-    diff_tibble2 <- diff_tibble2
-  }
+
+
+  incomplete_obs <- filter(diff_tibble2, observation == "end_observation" & lag(observation) == "end_observation") %>%
+    pull(index)
+
+   diff_tibble2 <- slice(diff_tibble2, -incomplete_obs)
+
+   if(diff_tibble2$observation[[1]] == "end_observation"){
+     diff_tibble2 <- slice(diff_tibble2, -1)
+   } else {
+     diff_tibble2 <- diff_tibble2
+   }
+
+
+ #old method of fixing incomplete traces
+  #if(diff_tibble2$observation[[(length(diff_tibble2$observation) - 1)]] == "end_observation"){
+  #  diff_tibble2 <- slice(diff_tibble2, -(nrow(diff_tibble2)))
+  #} else {
+  #  diff_tibble2 <- diff_tibble2
+ # }
 
 
 
@@ -72,13 +88,6 @@ make_trap_observations <- function(wd){
       diff_tibble2$observation[[x]] <- "begin_observation"
     }
   }
-
-  if(diff_tibble2$observation[[1]] == "end_observation"){
-    diff_tibble2 <- slice(diff_tibble2, -1)
-  } else {
-    diff_tibble2 <- diff_tibble2
-  }
-
 
 
 
