@@ -152,6 +152,17 @@ make_trap_observations <- function(wd){
     }
   }
 
+  directions <- tibble(obs = NA,
+                       baseline_start_sec	= NA,
+                       baseline_stop_sec = NA,
+                       detrend = NA,
+                       include = NA,
+                       condition = NA)
+
+  write.csv(directions,
+            file = paste0(wd, "/observations/directions.csv"),
+            row.names = FALSE)
+
 writeLines("Done")
 }
 
