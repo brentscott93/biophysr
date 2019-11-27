@@ -63,7 +63,12 @@ make_trap_observations <- function(wd){
   incomplete_obs <- filter(diff_tibble2, observation == "end_observation" & lag(observation) == "end_observation") %>%
     pull(index)
 
+   if(identical(incomplete_obs, integer(0)) == TRUE){
+     diff_tibble2 <- diff_tibble2
+
+   } else {
    diff_tibble2 <- slice(diff_tibble2, -incomplete_obs)
+   }
 
    if(diff_tibble2$observation[[1]] == "end_observation"){
      diff_tibble2 <- slice(diff_tibble2, -1)
