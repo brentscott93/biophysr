@@ -110,13 +110,13 @@ make_trap_observations <- function(wd){
   for(c in seq_along(create_obs)){
     if(c < 10){
       write.table(create_obs[[c]],
-                  file = paste0(wd, "/observations/", "obs_0", c, "/", "grouped.txt"),
+                  file = paste0(wd, "/observations/", "obs_0", c, "/", "grouped4r.txt"),
                   row.names = FALSE,
                   col.names = FALSE,
                    sep = "\t")
     } else {
       write.table(create_obs[[c]],
-                  file = paste0(wd, "/observations/", "obs_", c, "/", "grouped.txt"),
+                  file = paste0(wd, "/observations/", "obs_", c, "/", "grouped4r.txt"),
                   row.names = FALSE,
                   col.names = FALSE,
                   sep = "\t")
