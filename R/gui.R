@@ -71,13 +71,13 @@ gui <- function(){
 
 
   analysis<- gbutton("Run Analysis", cont=group,handler=function(...) {
-    gmessage("Analysis Running. Statusbar will read 'Analysis complete' when finished")
+    gmessage("Analysis Running. Updates in RStudio Console.")
 
     mini_ensemble_analyzer_gui(parent_dir = parent_dir,
                                mv2nm = mv2nm,
                                nm2pn = nm2pn,
                                run_mean_color = run_mean_color)
-
+         gmessage("Analysis Complete.")
         svalue(sb) <<- "Analysis Complete"
 
   })
