@@ -21,6 +21,13 @@ identify_mini_events <- function(raw_data, run_mean){
     rle_object
   }
 
+ # mini_rle_object <- if(head(mini_rle_object, 1)$values == 2){
+   # slice(mini_rle_object, -1)
+ # } else {
+ #   mini_rle_object
+ # }
+
+
   split_data <- mini_rle_object %>%
     dplyr::mutate(cumsum = cumsum(lengths)) %>%
     dplyr::group_by(values) %>%

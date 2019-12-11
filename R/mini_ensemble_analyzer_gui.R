@@ -36,11 +36,11 @@ read_directions <- suppressMessages(read_csv(directions)) %>%
 read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
 read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
 
-final_event_list <- vector("list")
-plot_list <- vector("list")
-dygraph_raw_data <- vector("list")
-dygraph_run_mean <- vector("list")
-dygraph_final_event <- vector("list")
+#final_event_list <- vector("list")
+#plot_list <- vector("list")
+#dygraph_raw_data <- vector("list")
+#dygraph_run_mean <- vector("list")
+#dygraph_final_event <- vector("list")
 
 for(folder in seq_along(read_directions$folder)){
   tryCatch({
@@ -121,6 +121,15 @@ for(folder in seq_along(read_directions$folder)){
       rle_object
     }
 
+      #this doesn;t work. just erase start of state 2 and loaf again
+   # mini_rle_object <- if(head(mini_rle_object, 1)$values == 2){
+   #   slice(mini_rle_object, -1)
+   # } else {
+   #   mini_rle_object
+   # }
+
+
+
     split_data <- mini_rle_object %>%
       dplyr::mutate(cumsum = cumsum(lengths)) %>%
       dplyr::group_by(values) %>%
@@ -171,7 +180,7 @@ for(folder in seq_along(read_directions$folder)){
                                 index = seq(1, length(trap)))
 
 
-    dygraph_raw_data[[folder]] <- rescaled_raw_data$trap
+   # dygraph_raw_data[[folder]] <- rescaled_raw_data$trap
 
     run_mean_rescaled <- as.vector(rollmean(rescaled_raw_data$trap, k = 50, align = "left"))
 
@@ -243,174 +252,58 @@ for(folder in seq_along(read_directions$folder)){
              end_s2 = state_2_end)
 
 
-
-    final_event_list[[folder]] <- final_events
-    dygraph_final_event[[folder]] <- final_events_4_plot
-
     writeLines(paste("Identified", nrow(final_events), "events in", length(dat)/5000, "seconds"))
+    writeLines("Saving Data")
+    write.csv(final_events, file = paste0(read_directions$folder[[folder]],
+                                                   "/results/",
+                                                   read_directions$condition[[folder]],
+                                                   "_",
+                                                   read_directions$folder[[folder]],
+                                                   "_",
+                                                   "mini_ensemble_events.csv"))
+
+
+
+   # final_event_list[[folder]] <- final_events
+   # dygraph_final_event[[folder]] <- final_events_4_plot
+
+
     #plot
-    writeLines("Plotting...")
+
     filter_final_events1 <- filter(final_events_4_plot, end_s2 < 20000)
-    filter_final_events2 <- filter(final_events_4_plot, end_s2 > 20000 & end_s2 < 40000)
+    filter_final_events2 <- filter(final_events_4_plot, end_s2 > 20001 & end_s2 < 40000)
     filter_final_events3 <- filter(final_events_4_plot, end_s2 > max(final_events_4_plot$end_s2) - 40000 & end_s2 < max(final_events_4_plot$end_s2) - 20000)
     filter_final_events4 <- filter(final_events_4_plot, end_s2 > max(final_events_4_plot$end_s2) - 20000)
 
 
     run_mean_rescaled0 <- ifelse(run_mean_rescaled$run_mean < 0 , 0, run_mean_rescaled$run_mean)
-    dygraph_run_mean[[folder]] <- run_mean_rescaled0
+    #dygraph_run_mean[[folder]] <- run_mean_rescaled0
 
-    if(length(dat) > 100001){
-      #1
-
-      p1 <- ggplot()+
-        geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
-        geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]),color = run_mean_color)+
-        geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
-        geom_point(aes(x = filter_final_events1$peak_nm_index, y = filter_final_events1$peak_nm), color = "gold")+
-        geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
-        geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
-        theme_bw()+
-        ggtitle(paste0(read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))+
-        ylab("Discplacement (nm)")+
-        xlab("")
+    ################################ MAKE DYGRAPH ####################################
+    writeLines("Making Dygraph")
+    #save dygraph data
 
 
-
-      #2
-
-      p2 <- ggplot()+
-        geom_line(aes(x = 20001:40000, y = rescaled_raw_data$trap[20001: 40000 ]))+
-        geom_line(aes(x = 20001: 40000, y = run_mean_rescaled0[20001:40000]),color = run_mean_color)+
-        geom_line(aes(x = 20001:40000, y = rep(8, 20000)), color = "gray50")+
-        geom_point(aes(x = filter_final_events2$peak_nm_index, y = filter_final_events2$peak_nm), color = "gold")+
-        geom_point(aes(x = filter_final_events2$end_s1, y = run_mean_rescaled0[filter_final_events2$end_s1]), color = "green", shape = 17, size = 2)+
-        geom_point(aes(x = filter_final_events2$end_s2, y = run_mean_rescaled0[filter_final_events2$end_s2]), color = "red", shape = 4)+
-        theme_bw()+
-        ylab("Discplacement (nm)")+
-        xlab("")
-
-      #3
-
-      p3 <- ggplot()+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = rescaled_raw_data$trap[(max(final_events_4_plot$end_s2) - 40000): (max(final_events_4_plot$end_s2) - 20000)]))+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = run_mean_rescaled0[(max(final_events_4_plot$end_s2) - 40000): (max(final_events_4_plot$end_s2)- 20000)]), color = run_mean_color)+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = rep(8, 20001)), color = "grey50")+
-        geom_point(aes(x = filter_final_events3$peak_nm_index, y = filter_final_events3$peak_nm), color = "gold")+
-        geom_point(aes(x = filter_final_events3$end_s1, y = run_mean_rescaled0[filter_final_events3$end_s1]), color = "green", shape = 17, size = 2)+
-        geom_point(aes(x = filter_final_events3$end_s2, y = run_mean_rescaled0[filter_final_events3$end_s2]), color = "red", shape = 4)+
-        theme_bw()+
-        ylab("Discplacement (nm)")+
-        xlab("")
-
-
-
-      #4
-      p4 <- ggplot()+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rescaled_raw_data$trap[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]))+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = run_mean_rescaled0[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]),color = run_mean_color)+
-        geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rep(8, 20001)), color = "grey50")+
-        geom_point(aes(x = filter_final_events4$peak_nm_index, y = filter_final_events4$peak_nm), color = "gold")+
-        geom_point(aes(x = filter_final_events4$end_s1, y = run_mean_rescaled0[filter_final_events4$end_s1]), color = "green", shape = 17, size = 2)+
-        geom_point(aes(x = filter_final_events4$end_s2, y = run_mean_rescaled0[filter_final_events4$end_s2]), color = "red", shape = 4)+
-        theme_bw()+
-        ylab("Discplacement (nm)")+
-        xlab("Time (data points)")
-
-
-      plots <-  arrangeGrob(p1, p2, p3, p4, ncol = 1)
-
-
-      plot_list[[folder]] <- plots
-
-    } else if(length(dat) < 100000){
-
-      #1
-
-      p1 <- ggplot()+
-        geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
-        geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]),color = run_mean_color)+
-        geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
-        geom_point(aes(x = filter_final_events1$peak_nm_index, y = filter_final_events1$peak_nm), color = "gold")+
-        geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
-        geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
-        theme_bw()+
-        ggtitle(paste0(read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))+
-        ylab("Discplacement (nm)")+
-        xlab("Time (data points")
-
-
-
-
-      plot_list[[folder]] <- p1
-    }
-
-  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-
-}
-
-
-writeLines("Saving Data")
-for(t in seq_along(final_event_list)){
-  write.csv(final_event_list[[t]], file = paste0(read_directions$folder[[t]],
-                                                 "/results/",
-                                                 read_directions$condition[[t]],
-                                                 "_",
-                                                 read_directions$folder[[t]],
-                                                 "_",
-                                                 "mini_ensemble_events.csv"))
-}
-
-
-writeLines("Saving Plots")
-for(p in seq_along(plot_list)){
-  tryCatch({
-    # 1. Open png file
-    png(paste0(read_directions$folder[[p]],
-               "/results/",
-               read_directions$condition[[p]],
-               "_",
-               read_directions$folder[[p]],
-               "_",
-               "mini_plot", ".png"),
-        width = 12, height = 8, units = "in", res = 500)
-    # 2. Create the plot
-    plot(plot_list[[p]])
-    # 3. Close the file
-    dev.off()
-  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-}
-
-################################ MAKE DYGRAPH ####################################
-writeLines("Making Interactive Plots")
-#save dygraph data
-
-for(d in seq_along(dygraph_raw_data)){
-  tryCatch({
-    dygraph_master_list <- list(raw_data = dygraph_raw_data[[d]],
-                                run_mean = dygraph_run_mean[[d]],
-                                final_events = dygraph_final_event[[d]],
+    dygraph_master_list <- list(raw_data = rescaled_raw_data$trap,
+                                run_mean = run_mean_rescaled0,
+                                final_events = final_events_4_plot,
                                 parent_dir = parent_dir)
 
-    save("dygraph_master_list", file = paste0(read_directions$folder[[d]],
+    save("dygraph_master_list", file = paste0(read_directions$folder[[folder]],
                                               "/results/",
-                                              read_directions$condition[[d]],
+                                              read_directions$condition[[folder]],
                                               "_",
-                                              read_directions$folder[[d]],
+                                              read_directions$folder[[folder]],
                                               "_dygraph_data.RData"))
 
 
-  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-}
 
-#make dygraph .R file
 
-for(y in 1:nrow(read_directions)){
-
-  tryCatch({
+    #make dygraph .R file
     writeLines(c(
       "#+ echo=FALSE",
       paste0("parent_dir <- ","'", parent_dir, "'"),
-      paste0("obs <- ", "'", read_directions$folder[[y]], "'"),
+      paste0("obs <- ", "'", read_directions$folder[[folder]], "'"),
       paste0("run_mean_color <- ", "'",run_mean_color, "'"),
       "
 #+ echo=FALSE, fig.width = 10, fig.height = 4
@@ -469,26 +362,293 @@ for(y in 1:nrow(read_directions)){
 
   "),
 
-      paste0(read_directions$folder[[y]],
+      paste0(read_directions$folder[[folder]],
              "/results/",
-             read_directions$condition[[y]],
+             read_directions$condition[[folder]],
              "_",
-             read_directions$folder[[y]],
+             read_directions$folder[[folder]],
              "_dygraph.R")
 
     )
+
+
+
+    writeLines("Plotting...")
+
+   plots <- if(length(dat) > 200001){
+      #1
+
+     p1 <- ggplot()+
+       geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
+       geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]),color = run_mean_color)+
+       geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
+       geom_point(aes(x = filter_final_events1$peak_nm_index, y = filter_final_events1$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ggtitle(paste0(read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))+
+       ylab("Discplacement (nm)")+
+       xlab("")
+
+
+
+     #2
+
+     p2 <- ggplot()+
+       geom_line(aes(x = 20001:40000, y = rescaled_raw_data$trap[20001: 40000 ]))+
+       geom_line(aes(x = 20001: 40000, y = run_mean_rescaled0[20001:40000]),color = run_mean_color)+
+       geom_line(aes(x = 20001:40000, y = rep(8, 20000)), color = "gray50")+
+       geom_point(aes(x = filter_final_events2$peak_nm_index, y = filter_final_events2$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events2$end_s1, y = run_mean_rescaled0[filter_final_events2$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events2$end_s2, y = run_mean_rescaled0[filter_final_events2$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ylab("Discplacement (nm)")+
+       xlab("")
+
+     #3
+
+     p3 <- ggplot()+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = rescaled_raw_data$trap[(max(final_events_4_plot$end_s2) - 40000): (max(final_events_4_plot$end_s2) - 20000)]))+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = run_mean_rescaled0[(max(final_events_4_plot$end_s2) - 40000): (max(final_events_4_plot$end_s2)- 20000)]), color = run_mean_color)+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 40000):max(final_events_4_plot$end_s2 - 20000), y = rep(8, 20001)), color = "grey50")+
+       geom_point(aes(x = filter_final_events3$peak_nm_index, y = filter_final_events3$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events3$end_s1, y = run_mean_rescaled0[filter_final_events3$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events3$end_s2, y = run_mean_rescaled0[filter_final_events3$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ylab("Discplacement (nm)")+
+       xlab("")
+
+
+
+     #4
+     p4 <- ggplot()+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rescaled_raw_data$trap[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]))+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = run_mean_rescaled0[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]),color = run_mean_color)+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rep(8, 20001)), color = "grey50")+
+       geom_point(aes(x = filter_final_events4$peak_nm_index, y = filter_final_events4$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events4$end_s1, y = run_mean_rescaled0[filter_final_events4$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events4$end_s2, y = run_mean_rescaled0[filter_final_events4$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ylab("Discplacement (nm)")+
+       xlab("Time (data points)")
+
+
+     plots <-  arrangeGrob(p1, p2,p3, p4, ncol = 1)
+
+
+    # plot_list[[folder]] <- plots
+
+   } else if(length(dat) > 100001 & length(dat) < 200001){
+
+     p1 <- ggplot()+
+       geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
+       geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]),color = run_mean_color)+
+       geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
+       geom_point(aes(x = filter_final_events1$peak_nm_index, y = filter_final_events1$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ggtitle(paste0(read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))+
+       ylab("Discplacement (nm)")+
+       xlab("")
+
+
+     p4 <- ggplot()+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rescaled_raw_data$trap[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]))+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = run_mean_rescaled0[(max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2)]),color = run_mean_color)+
+       geom_line(aes(x = (max(final_events_4_plot$end_s2) - 20000):max(final_events_4_plot$end_s2), y = rep(8, 20001)), color = "grey50")+
+       geom_point(aes(x = filter_final_events4$peak_nm_index, y = filter_final_events4$peak_nm), color = "gold")+
+       geom_point(aes(x = filter_final_events4$end_s1, y = run_mean_rescaled0[filter_final_events4$end_s1]), color = "green", shape = 17, size = 2)+
+       geom_point(aes(x = filter_final_events4$end_s2, y = run_mean_rescaled0[filter_final_events4$end_s2]), color = "red", shape = 4)+
+       theme_bw()+
+       ylab("Discplacement (nm)")+
+       xlab("Time (data points)")
+
+     plots <-  arrangeGrob(p1, p4, ncol = 1)
+
+
+   } else if(length(dat) < 100001){
+
+      #
+
+      plots <- ggplot()+
+        geom_line(aes(x = 1:20000, y = rescaled_raw_data$trap[1: 20000 ]))+
+        geom_line(aes(x = 1: 20000, y = run_mean_rescaled0[1:20000]), color = run_mean_color)+
+        geom_line(aes(x = 1:20000, y = rep(8, 20000)), color = "gray50")+
+        geom_point(aes(x = filter_final_events1$peak_nm_index, y = filter_final_events1$peak_nm), color = "gold")+
+        geom_point(aes(x = filter_final_events1$end_s1, y = run_mean_rescaled0[filter_final_events1$end_s1]), color = "green", shape = 17, size = 2)+
+        geom_point(aes(x = filter_final_events1$end_s2, y = run_mean_rescaled0[filter_final_events1$end_s2]), color = "red", shape = 4)+
+        theme_bw()+
+        ggtitle(paste0(read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))+
+        ylab("Discplacement (nm)")+
+        xlab("Time (data points)")
+
+
+   }
+
+  #Save Plots
+   writeLines("Saving Plot")
+       # 1. Open png file
+       png(paste0(read_directions$folder[[folder]],
+                  "/results/",
+                  read_directions$condition[[folder]],
+                  "_",
+                  read_directions$folder[[folder]],
+                  "_",
+                  "mini_plot", ".png"),
+           width = 12, height = 8, units = "in", res = 500)
+       # 2. Create the plot
+       plot(plots)
+       # 3. Close the file
+       dev.off()
+
+
   }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+
 }
 
 
+
+#writeLines("Saving Data")
+#for(t in seq_along(final_event_list)){
+#  write.csv(final_event_list[[t]], file = paste0(read_directions$folder[[t]],
+                                      #           "/results/",
+                                      #           read_directions$condition[[t]],
+                                       #          "_",
+                                       #          read_directions$folder[[t]],
+                                        #         "_",
+                                       #          "mini_ensemble_events.csv"))
+#}#
+
+
+#writeLines("Saving Plots")
+#for(p in seq_along(plot_list)){
+#  tryCatch({
+    # 1. Open png file
+ #   png(paste0(read_directions$folder[[p]],
+ #              "/results/",
+ #              read_directions$condition[[p]],
+  #             "_",
+ #              read_directions$folder[[p]],
+  #             "_",
+  #             "mini_plot", ".png"),
+  #      width = 12, height = 8, units = "in", res = 500)
+    # 2. Create the plot
+  #  plot(plot_list[[p]])
+  #  # 3. Close the file
+  #  dev.off()
+ # }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+#}
+
+################################ MAKE DYGRAPH ####################################
+#writeLines("Making Interactive Plots")
+#save dygraph data
+
+#for(d in seq_along(dygraph_raw_data)){
+#  tryCatch({
+##    dygraph_master_list <- list(raw_data = dygraph_raw_data[[d]],
+#                                run_mean = dygraph_run_mean[[d]],
+ ##                               final_events = dygraph_final_event[[d]],
+  #                              parent_dir = parent_dir)
+#
+ #   save("dygraph_master_list", file = paste0(read_directions$folder[[d]],
+  #                                            "/results/",
+   #                                           read_directions$condition[[d]],
+    #                                          "_",
+     #                                         read_directions$folder[[d]],
+      #                                        "_dygraph_data.RData"))
+
+
+#  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+#}
+
+#make dygraph .R file
+
+#for(y in 1:nrow(read_directions)){
+
+#  tryCatch({
+ #   writeLines(c(
+  #    "#+ echo=FALSE",
+   #   paste0("parent_dir <- ","'", parent_dir, "'"),
+    #  paste0("obs <- ", "'", read_directions$folder[[y]], "'"),
+     # paste0("run_mean_color <- ", "'",run_mean_color, "'"),
+#      "
+##+ echo=FALSE, fig.width = 10, fig.height = 4
+ # setwd(parent_dir)
+
+#  library(tidyverse)
+ # library(dygraphs)
+  #library(rmarkdown)
+
+
+  #directions <- list.files(pattern = 'directions.csv')
+  #observation_folders <- list.files(pattern = 'obs')
+
+  #read_directions <- suppressMessages(read_csv(directions)) %>%
+  #mutate(folder = observation_folders)%>%
+  #filter(include == 'yes')
+
+  #setwd(paste0(parent_dir, '/', obs, '/results'))
+  #dg_dat <- list.files(pattern = 'dygraph_data.RData')
+  #load(dg_dat)
+
+  #d <- data.frame(index = 1:length(dygraph_master_list$run_mean),
+   #               raw = dygraph_master_list$raw_data[1:length(dygraph_master_list$run_mean)],
+    #              run = dygraph_master_list$run_mean,
+     #             thresh = rep(8, length(dygraph_master_list$run_mean)))
+
+#  events <- dygraph_master_list$final_events
+
+ # periods_df <- data.frame(start = events$end_s1,
+    #                       stop = events$end_s2)
+
+
+  #add_shades <- function(x, periods, ...){
+   # for(p in 1:nrow(periods)){
+    #  x <- dyShading(x, from = periods$start[[p]], to = periods$stop[[p]], ...)
+    #}
+    #x
+  #}
+
+ #  add_labels <- function(x, events, ...){
+ #   for(event in 1:nrow(events)){
+ #     x <- dyEvent(x, events$peak_nm_index[[event]], paste(events$time_on_ms[[event]], 'ms,', round(events$force[[event]], digits = 2), 'pN'), ...)
+ #   }
+#    x
+#  }
+
+#  dygraph(d) %>%
+ #   dySeries('raw', color = 'gray30', strokeWidth = 2) %>%
+  ## dySeries('thresh', strokeWidth = 3, color = 'lightgrey') %>%
+    #dyRangeSelector() %>%
+#    add_shades(periods_df, color = 'lightpink') %>%
+ #   add_labels(events, labelLoc = 'bottom') %>%
+#    dyAxis('x', drawGrid = FALSE) %>%
+ #   dyUnzoom()
+
+ # "),
+
+  #    paste0(read_directions$folder[[y]],
+    #         "/results/",
+    #         read_directions$condition[[y]],
+  #           "_",
+  #           read_directions$folder[[y]],
+  #           "_dygraph.R")
+
+ ##   )
+ # }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+#}
+
+
 #render to HTML
+writeLines("Render to HTML")
 for(r in 1:nrow(read_directions)){
   tryCatch({
 
-    rmarkdown::render(paste0(parent_dir,
+   rmarkdown::render(paste0(parent_dir,
                              "/",
                              read_directions$folder[[r]],
-                             "/results/",
+                            "/results/",
                              read_directions$condition[[r]],
                              "_",
                              read_directions$folder[[r]],

@@ -12,10 +12,10 @@ make_trap_observations <- function(wd){
   writeLines("Reading Data")
   setwd(wd)
   dir.create(paste0(wd, "/", "observations"))
-
-
+  incProgress(10, detail = "Reading Data")
   f <- list.files(pattern = "*.txt")
-  txts <- map(f, read.delim, header = FALSE)
+  txts <- purrr::map(f, read.delim, header = FALSE)
+
 
   writeLines("Creating Observations")
   str_trap <- function(x){
@@ -100,6 +100,7 @@ make_trap_observations <- function(wd){
     group_split(observation) %>%
     bind_cols()
 
+
   writeLines("Arranging Folders")
   wd <- getwd()
   obs_file_names <- vector("list")
@@ -135,7 +136,8 @@ make_trap_observations <- function(wd){
     create_obs[[row]] <- dplyr::bind_rows(txts[diff_tibble2$index[[row]]:diff_tibble2$index1[[row]]])
   }
 
-  writeLines("Saving Data")
+
+ writeLines("Saving Data")
   for(c in seq_along(create_obs)){
     if(c < 10){
       write.table(create_obs[[c]],
@@ -163,7 +165,7 @@ make_trap_observations <- function(wd){
             file = paste0(wd, "/observations/directions.csv"),
             row.names = FALSE)
 
-writeLines("Done")
+
 }
 
 

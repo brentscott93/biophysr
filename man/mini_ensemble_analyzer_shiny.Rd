@@ -4,8 +4,7 @@
 \alias{mini_ensemble_analyzer_shiny}
 \title{Mini Ensemble analyzer for shiny}
 \usage{
-mini_ensemble_analyzer_shiny(input, detrend, baseline_start_sec,
-  baseline_end_sec, mv2nm, nm2pn, run_mean_color)
+mini_ensemble_analyzer_shiny(parent_dir, mv2nm, nm2pn, run_mean_color)
 }
 \arguments{
 \item{run_mean_color}{}

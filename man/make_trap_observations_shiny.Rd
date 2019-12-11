@@ -4,7 +4,7 @@
 \alias{make_trap_observations_shiny}
 \title{Make Trap Observations}
 \usage{
-make_trap_observations_shiny(f, txts)
+make_trap_observations_shiny(wd)
 }
 \arguments{
 \item{txts}{}
