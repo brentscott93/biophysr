@@ -9,6 +9,9 @@ possibly_hill_nest(data, nest_key)
 \arguments{
 \item{nest_name}{}
 }
+\value{
+
+}
 \description{
 This will attempt to fit the Hill Equation to data in a nested data frame. If hill equation cannot be fit NA is reported. You can use dplyr::filter() to remove these and use fit_hill_nest() to remaining data.
 }

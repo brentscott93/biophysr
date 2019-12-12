@@ -6,6 +6,9 @@
 \usage{
 gui()
 }
+\value{
+
+}
 \description{
 Runs GUI
 }

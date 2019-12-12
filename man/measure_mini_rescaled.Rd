@@ -9,6 +9,9 @@ measure_mini_rescaled(raw_data, run_mean)
 \arguments{
 \item{run_mean}{}
 }
+\value{
+
+}
 \description{
 Measure ton and toff for mini ensemble data
 }

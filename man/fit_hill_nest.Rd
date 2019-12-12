@@ -9,6 +9,9 @@ fit_hill_nest(data, nest_key)
 \arguments{
 \item{nest_key}{name of the "nest key" used to create the oringal nested data in nest()}
 }
+\value{
+
+}
 \description{
 Fits the Hill Equation using drc::drm() to all nested data and adds a column to the dataframe with model specifics called "drm_model". The Hill Equation parameters are extracted and added as new columns. The last column that is added is "predictions". This is a list of coordinates that can be graphed to show the "fit" of the line to the data.
 }

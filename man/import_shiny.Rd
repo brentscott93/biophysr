@@ -9,6 +9,9 @@ import_shiny(shiny_datapath, file_name)
 \arguments{
 \item{file_name}{}
 }
+\value{
+
+}
 \description{
 Import Files to R Shiny
 }

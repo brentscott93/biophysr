@@ -9,6 +9,9 @@ fit_hmm(data, setpars_vector, set_seed)
 \arguments{
 \item{set_seed}{}
 }
+\value{
+
+}
 \description{
 Fit HMM
 }

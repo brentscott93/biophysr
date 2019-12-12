@@ -10,8 +10,11 @@ measure_mini(raw_data, run_mean)
 }
 \arguments{
 \item{run_mean}{}
+}
+\value{
 
-\item{run_mean}{}
+
+
 }
 \description{
 Measure ton and toff for mini ensemble data

@@ -9,6 +9,9 @@ find_peaks(x, m = 3)
 \arguments{
 \item{m}{}
 }
+\value{
+
+}
 \description{
 Find Peaks Function from "https://github.com/stas-g/findPeaks"
 }

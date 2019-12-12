@@ -9,6 +9,9 @@ analyze_mini_ensemble(data, mv2nm, detrend)
 \arguments{
 \item{data}{}
 }
+\value{
+
+}
 \description{
 Analyze Mini Ensemble Data - Finds Event Duration, Force, and Time Offs
 }

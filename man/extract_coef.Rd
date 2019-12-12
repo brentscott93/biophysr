@@ -9,6 +9,9 @@ extract_coef(data, nest_key)
 \arguments{
 \item{nest_name}{}
 }
+\value{
+
+}
 \description{
 Fit Hill Equation to nested data
 }

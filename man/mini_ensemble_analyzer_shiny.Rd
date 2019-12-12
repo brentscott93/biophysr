@@ -9,6 +9,9 @@ mini_ensemble_analyzer_shiny(parent_dir, mv2nm, nm2pn, run_mean_color)
 \arguments{
 \item{run_mean_color}{}
 }
+\value{
+
+}
 \description{
 Mini Ensemble analyzer for shiny
 }

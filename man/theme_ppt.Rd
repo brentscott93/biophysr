@@ -9,6 +9,9 @@ theme_ppt(base_size = 28, base_family = "")
 \arguments{
 \item{base_rect_size}{}
 }
+\value{
+
+}
 \description{
 ggplot2 theme for powerpoint presentations
 }

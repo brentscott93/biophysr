@@ -9,6 +9,9 @@ fit_hill_nest_pm(data, nest_key)
 \arguments{
 \item{nest_name}{}
 }
+\value{
+
+}
 \description{
 Fit Hill Equation to percent moving nested data
 }

@@ -9,6 +9,9 @@ count_events(data)
 \arguments{
 \item{data}{}
 }
+\value{
+
+}
 \description{
 Count HMM Events
 }

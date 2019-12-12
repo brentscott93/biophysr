@@ -9,6 +9,9 @@ make_trap_observations(wd)
 \arguments{
 \item{txts}{}
 }
+\value{
+
+}
 \description{
 Make Trap Observations
 }

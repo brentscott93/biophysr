@@ -9,6 +9,9 @@ make_trap_observations_shiny(wd)
 \arguments{
 \item{txts}{}
 }
+\value{
+
+}
 \description{
 Make Trap Observations
 }

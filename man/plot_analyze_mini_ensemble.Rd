@@ -9,6 +9,9 @@ plot_analyze_mini_ensemble(data)
 \arguments{
 \item{data}{}
 }
+\value{
+
+}
 \description{
 Analyze Mini Ensemble Data - Finds Event Duration, Force, and Time Offs
 }

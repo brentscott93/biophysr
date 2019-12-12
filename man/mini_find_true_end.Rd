@@ -9,6 +9,9 @@ mini_find_true_end(x)
 \arguments{
 \item{x}{}
 }
+\value{
+
+}
 \description{
 Find first data point not in mini ensemble event
 }

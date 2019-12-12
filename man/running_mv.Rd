@@ -9,6 +9,9 @@ running_mv(data, window_width, by)
 \arguments{
 \item{window_width}{}
 }
+\value{
+
+}
 \description{
 Calulate Running Mean and Variance
 }

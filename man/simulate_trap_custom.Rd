@@ -4,8 +4,13 @@
 \alias{simulate_trap_custom}
 \title{Simulate Laser Trap Data}
 \usage{
-simulate_trap_custom(number_of_events, step_size, event_duration,
-  signal_2_noise, add_noise)
+simulate_trap_custom(
+  number_of_events,
+  step_size,
+  event_duration,
+  signal_2_noise,
+  add_noise
+)
 }
 \arguments{
 \item{signal_2_noise}{}

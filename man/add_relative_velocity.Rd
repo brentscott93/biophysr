@@ -9,6 +9,9 @@ add_relative_velocity(summary_dat, condition, control_name, ph_value)
 \arguments{
 \item{ph_value}{}
 }
+\value{
+
+}
 \description{
 Add relative velocity columns to motility data
 }

@@ -9,6 +9,9 @@ mini_rescale_start(raw_data, run_mean)
 \arguments{
 \item{run_mean}{}
 }
+\value{
+
+}
 \description{
 Find better event start
 }

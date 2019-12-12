@@ -9,6 +9,9 @@ identify_mini_events(raw_data, run_mean)
 \arguments{
 \item{run_mean}{}
 }
+\value{
+
+}
 \description{
 Identifies mini ensemble events (>10nm, >10ms)
 }

@@ -9,6 +9,9 @@ summarize_motility(data)
 \arguments{
 \item{analyze_motility_data}{}
 }
+\value{
+
+}
 \description{
 Summarizes the data from analyze_motility() that can be used for plotting average of all analyzed data.
 }
