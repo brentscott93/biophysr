@@ -11,7 +11,6 @@ suppressPackageStartupMessages(library(pracma))
 suppressPackageStartupMessages(library(tidyverse))
 library(knitr)
 library(rmarkdown)
-library(gganimate)
 library(biophysr)
 
 ### ui end, to browse to desired folder
