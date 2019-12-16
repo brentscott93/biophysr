@@ -10,6 +10,7 @@ suppressPackageStartupMessages(library(zoo))
 suppressPackageStartupMessages(library(pracma))
 suppressPackageStartupMessages(library(tidyverse))
 library(knitr)
+library(dygraphs)
 library(rmarkdown)
 library(biophysr)
 
