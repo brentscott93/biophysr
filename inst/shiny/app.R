@@ -121,6 +121,7 @@ ui = fillPage(theme = shinytheme("slate"),
                                                           label = "Make Observations",
                                                           icon = icon("eye"))
 
+
                                               ),  #column close
 #CLEAN DATA
                                     column(3,
@@ -216,7 +217,15 @@ ui = fillPage(theme = shinytheme("slate"),
                                            actionButton(inputId = "summarize",
                                                         label = "Summarize",
                                                         icon = icon("calculator"))
-                                               ) # columns close
+                                               ), # columns close
+
+                                      column(4,
+                                             h4("Messages"),
+                                             textOutput("trap_obs"),
+                                             textOutput("mini_analysis"),
+                                             textOutput("hmm_analysis")
+                                      )
+
 
                                ) #fluid row close
                              ) #trap tab close
@@ -278,10 +287,15 @@ server = function(input, output, session) {
 
   #Make the trap oservations fuction
 
-  obs <- eventReactive(input$make_observations_action_button, {
+   obs <- eventReactive(input$make_observations_action_button, {
     req(nchar(laser_path())>0)
     biophysr::make_trap_observations_shiny(laser_path())
+    print("Made Trap Observations")
   })
+
+   output$trap_obs <- renderText({
+     obs()
+   })
 
 
   # End make trap observations
@@ -318,7 +332,11 @@ server = function(input, output, session) {
                                            mv2nm = as.numeric(input$mv2nm),
                                            nm2pn = as.numeric(input$nm2pn),
                                            run_mean_color = input$mini_col)
+    print("Mini-Ensemble Analysis Complete")
+  })
 
+  output$mini_analysis <- renderText({
+    mini_analyzed()
   })
 
   #HMM analysis
@@ -328,6 +346,13 @@ server = function(input, output, session) {
                                          mv2nm = as.numeric(input$mv2nm),
                                          nm2pn = as.numeric(input$nm2pn),
                                          overlay_color = input$mini_col)
+  print("HMM Analysis Complete")
+  })
+
+
+
+  output$hmm_analysis <- renderText({
+    hmm_analyzed()
   })
 
 
