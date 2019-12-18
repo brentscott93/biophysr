@@ -4,7 +4,10 @@
 #' @export
 #'
 #' @examples
-hidden_markov_analysis <- function(parent_dir, mv2nm, nm2pn, overlay_color ){
+hidden_markov_analysis_shiny <- function(parent_dir, mv2nm, nm2pn, overlay_color ){
+
+withProgress(message = 'HMM Analysis in Progress', value = 0, max = 1, min = 0, {
+    incProgress(amount = .01, detail = "Reading Data")
 
 ## START OF SCRIPT ##
 
@@ -46,9 +49,12 @@ error_file <- file("error_log.txt", open =  "a")
 for(folder in seq_along(read_directions$folder)){
   tryCatch({
 
-report[[r]] <- report[[r]] <- paste0("failed_to_initialize!_", read_directions$folder[[r]])
+    inc_prog_bar <-  nrow(read_directions)
+    incProgress(1/inc_prog_bar, paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
 
-writeLines(paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
+report[[folder]] <- paste0("failed_to_initialize!_", read_directions$folder[[folder]])
+
+#writeLines(paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
 
 dir.create(path = paste0(read_directions$folder[[folder]], "/", "results"))
 
@@ -91,7 +97,7 @@ running_table <- data.frame(run_mean = run_mean,
 
 ## HMM ##
 writeLines("Fitting HMM")
-report[[r]] <- report[[r]] <- paste0("failed_HMM!_", read_directions$folder[[r]])
+report[[folder]]  <- paste0("failed_HMM!_", read_directions$folder[[folder]])
 
 seed <- floor(runif(1, 0, 1e6))
 
@@ -145,7 +151,7 @@ while(hmm_repeat < 10){
   }
 }
 
-report[[r]] <- report[[r]] <- paste0("error-HMM_starts_in_state_2!_", read_directions$folder[[r]])
+report[[folder]] <- paste0("error-HMM_starts_in_state_2!_", read_directions$folder[[folder]])
 
 if(hmm_posterior$state[[1]] == 2){
   writeLines(c("Skipping",
@@ -207,7 +213,7 @@ write_csv(hmm_identified_events, paste0(read_directions$folder[[folder]],
                                         "_data4_ensemble_average.csv"))
 
 
-report[[r]] <- report[[r]] <- paste0("error_measureing_events!_", read_directions$folder[[r]])
+ report[[folder]] <- paste0("error_measureing_events!_", read_directions$folder[[folder]])
 
 ## MEASURE EVENTS ##
 writeLines("Measuring Events")
@@ -472,7 +478,7 @@ writeLines(c(
 
 )
 
-report[[r]] <- paste0("failed_to_plot!_", read_directions$folder[[r]])
+report[[folder]] <- paste0("failed_to_plot!_", read_directions$folder[[folder]])
 
 ## PLOT OVERLAY ##
 writeLines("Plotting Hmm Overlay...")
@@ -553,8 +559,8 @@ ggsave(paste0(read_directions$folder[[folder]],
 } else {
 
   plot1 <- ggplot()+
-    geom_line(aes(x = (1:25000)/5000, y = flip_raw[1:dp2plot]))+
-    geom_line(aes(x = (1:25000)/5000, y = overlay[1:dp2plot]), color = overlay_color,  size = 0.75)+
+    geom_line(aes(x = (1:25000)/5000, y = flip_raw[1:25000]))+
+    geom_line(aes(x = (1:25000)/5000, y = overlay[1:25000]), color = overlay_color,  size = 0.75)+
     xlab("")+
     ylab("nm")+
     ggtitle(paste0(read_directions$condition[[folder]],
@@ -570,10 +576,29 @@ ggsave(paste0(read_directions$folder[[folder]],
 
 }
 
+incProgress(detail = "Render to HTML")
+
+#render to HTML
+report[[folder]] <- paste0("failed_to_render_dygraph!_", read_directions$folder[[folder]])
+
+rmarkdown::render(paste0(parent_dir,
+                         "/",
+                         read_directions$folder[[folder]],
+                         "/results/",
+                         read_directions$condition[[folder]],
+                         "_",
+                         read_directions$folder[[folder]],
+                         "_dygraph.R"))
+
+report[[folder]] <- paste0("success!_", read_directions$folder[[folder]])
+
+
+
+
 
   }, error=function(e){
     writeLines(paste0("Analysis error in ",
-           read_directions$folder[[r]],
+           read_directions$folder[[folder]],
            "with error: ",
            as.character(e)), error_file)
     cat("ERROR :",conditionMessage(e), "\n")
@@ -583,32 +608,32 @@ ggsave(paste0(read_directions$folder[[folder]],
 
 
 #render to HTML
-writeLines("Render to HTML")
-for(r in 1:nrow(read_directions)){
-  tryCatch({
+#writeLines("Render to HTML")
+#or(r in 1:nrow(read_directions)){
+ # tryCatch({
 
-    report[[r]] <- paste0("failed_to_render_dygraph!_", read_directions$folder[[r]])
+ #   report[[r]] <- paste0("failed_to_render_dygraph!_", read_directions$folder[[r]])
 
-    rmarkdown::render(paste0(parent_dir,
-                             "/",
-                             read_directions$folder[[r]],
-                             "/results/",
-                             read_directions$condition[[r]],
-                             "_",
-                             read_directions$folder[[r]],
-                             "_dygraph.R"))
+ #   rmarkdown::render(paste0(parent_dir,
+   #                          "/",
+ #                            read_directions$folder[[r]],
+#                             "/results/",
+#                             read_directions$condition[[r]],
+#                             "_",
+ #                            read_directions$folder[[r]],
+#                             "_dygraph.R"))
 
-    report[[r]] <- paste0("success!_", read_directions$folder[[r]])
+ #   report[[r]] <- paste0("success!_", read_directions$folder[[r]])
 
-  }, error=function(e){
-    writeLines(paste0("Render to HTML failed on ",
-                      read_directions$folder[[r]],
-                      " with error: ",
-                      as.character(e)), error_file)
-    cat("ERROR :",conditionMessage(e), "\n")
-    })
+  #}, error=function(e){
+   # writeLines(paste0("Render to HTML failed on ",
+    #                  read_directions$folder[[r]],
+     #                 " with error: ",
+      #                as.character(e)), error_file)
+    #cat("ERROR :",conditionMessage(e), "\n")
+  #  })
 
-}
+#}
 
 export_directions <- suppressMessages(read_csv(directions)) %>%
   mutate(folder = observation_folders,
@@ -619,7 +644,7 @@ success_report <- tibble(analysis_complete = unlist(report)) %>%
   full_join(export_directions) %>%
   replace_na(list(report = "user_excluded")) %>%
   arrange(folder) %>%
-  select(-starts_with("grouped_file"))
+  dplyr::select(-starts_with("grouped_file"))
 
 write_csv(success_report, "directions.csv")
 
@@ -630,6 +655,10 @@ close(error_file)
 
 
 
-  writeLines("Done")
+incProgress(1, detail = "Done!")
+
+})
+
+  showNotification("HMM analysis is complete. Files saved to selected directory. ")
 
 }

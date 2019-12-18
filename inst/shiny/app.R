@@ -131,7 +131,7 @@ ui = fillPage(theme = shinytheme("slate"),
                                            h5("1) Use pCLAMP to prepare data"),
                                            h5("2) Fill-out directions"),
                                            h6("For detailed instructions see:"),
-                                           h6(em("link to protocol here")),
+                                           h6(shiny::em("link to protocol here")),
                                            h6("Too see example of complete 'directions.csv' click here:"),
                                            actionButton('directions', "Directions Demo")
                                          ),   #column close,
@@ -343,7 +343,7 @@ server = function(input, output, session) {
   #HMM analysis
   hmm_analyzed <- eventReactive(input$hmm_action_button, {
   req(str_sub(laser_path(), start = -12) == "observations")
-  biophysr::hidden_markov_analysis(parent_dir = laser_path(),
+  biophysr::hidden_markov_analysis_shiny(parent_dir = laser_path(),
                                          mv2nm = as.numeric(input$mv2nm),
                                          nm2pn = as.numeric(input$nm2pn),
                                          overlay_color = input$mini_col)

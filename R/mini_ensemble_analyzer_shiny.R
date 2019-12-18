@@ -12,7 +12,7 @@
 mini_ensemble_analyzer_shiny <- function(parent_dir, mv2nm, nm2pn, run_mean_color){
 
     withProgress(message = 'Analyzing Mini Ensemble', value = 0, max = 1, min = 0, {
-    incProgress(amount = .1, detail = "Reading Data")
+    incProgress(amount = .01, detail = "Reading Data")
 
 
     setwd(parent_dir)
@@ -34,7 +34,7 @@ mini_ensemble_analyzer_shiny <- function(parent_dir, mv2nm, nm2pn, run_mean_colo
     for(folder in seq_along(read_directions$folder)){
       tryCatch({
 
-        inc_prog_bar = nrow(read_directions) * 2.5
+        inc_prog_bar <-  nrow(read_directions) * 4
         incProgress(1/inc_prog_bar, paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
 
 
