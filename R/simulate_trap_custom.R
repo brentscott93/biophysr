@@ -22,7 +22,7 @@ simulate_trap_custom <- function(number_of_events, step_size,  event_duration, s
 
 
   simulate_events <- c(replicate(number_of_events, jitter(c(rnorm(sample(baseline_duration, 1), 0, 7.5),
-                                                            rnorm(event_duration, step_size, 7.5/signal_2_noise)), amount = add_noise)))
+                                                            rnorm(event_duration, step_size, 7.5*signal_2_noise)))))
 
 
   combine_events <- unlist(simulate_events, use.names = FALSE)
@@ -30,5 +30,6 @@ simulate_trap_custom <- function(number_of_events, step_size,  event_duration, s
   final <- c(combine_events, rnorm(5000, 0, 7.5))
 
 }
+
 
 

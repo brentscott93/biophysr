@@ -12,10 +12,45 @@ suppressPackageStartupMessages(library(tidyverse))
 library(knitr)
 library(dygraphs)
 library(rmarkdown)
+library(plotrix)
 library(biophysr)
+library(shinymanager)
+library(googledrive)
 
-### ui end, to browse to desired folder
-ui = fillPage(theme = shinytheme("slate"),
+inactivity <- "function idleTimer() {
+var t = setTimeout(logout, 120000);
+window.onmousemove = resetTimer; // catches mouse movements
+window.onmousedown = resetTimer; // catches mouse movements
+window.onclick = resetTimer;     // catches mouse clicks
+window.onscroll = resetTimer;    // catches scrolling
+window.onkeypress = resetTimer;  //catches keyboard actions
+
+function logout() {
+window.close();  //close the window
+}
+
+function resetTimer() {
+clearTimeout(t);
+t = setTimeout(logout, 120000);  // time is in milliseconds (1000 is 1 second)
+}
+}
+idleTimer();"
+
+
+# data.frame with credentials info
+credentials <- data.frame(
+  user = c("bscott", "mwoodward", "cmarang"),
+  password = c("bscott", "mwoodward", "cmarang"),
+  comment = c("logged in as bscott", "logged in as mwoodward", "logged in as cmarang"),
+  stringsAsFactors = FALSE
+)
+
+#options(gargle_oob_default = TRUE)
+#drive_auth(cache = ".secrets", email = "bdscott@umass.edu")
+
+#start app
+ui <- secure_app(head_auth = tags$script(inactivity),
+ fillPage(theme = shinytheme("slate"),
 
               navbarPage("biophysr",
                 tabPanel("Home",
@@ -30,9 +65,11 @@ ui = fillPage(theme = shinytheme("slate"),
                                          br(),
                                          br(),
                                          br(),
+                                         br(),
                                          h1(strong("biophysr")),
                                          h5("analysis for muscle biophysics"),
                                          br(),
+                                         textOutput("current_user_comment"),
                                          #h3("Page is currentlty under construction"),
                                       ), # column close
                                   column(4)
@@ -233,7 +270,7 @@ ui = fillPage(theme = shinytheme("slate"),
                            ) #navbar page
                         ) #fill/fluid page close
 
-
+) #secure app close
 # END UI
 #############################################################################################################
 #############################################################################################################
@@ -245,7 +282,24 @@ ui = fillPage(theme = shinytheme("slate"),
 
 server = function(input, output, session) {
 
+  result_auth <- secure_server(check_credentials = check_credentials(credentials))
+
+ # output$res_auth <- renderPrint({
+   # reactiveValuesToList(result_auth)
+ # })
+
+
   options(shiny.maxRequestSize=30*1024^2)
+
+  current_user_comment <- reactive({ result_auth$comment })
+
+  output$current_user_comment <- renderText({
+    current_user_comment()
+  })
+
+
+  current_user <- reactive({ result_auth$user })
+
   #------------------------------------------------------------------------------------------------------------
   #------------------------------------------------------------------------------------------------------------
   #------------------------------------------------------------------------------------------------------------
@@ -361,6 +415,7 @@ server = function(input, output, session) {
   #------------------------------------------------------------------------------------------------------------
   #------------------------------------------------------------------------------------------------------------
   #------------------------------------------------------------------------------------------------------------
+
 
 
 
