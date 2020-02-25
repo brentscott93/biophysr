@@ -7,12 +7,6 @@
 fit_exp(data, bw, color, zoom)
 }
 \arguments{
-\item{data}{}
-
-\item{bw}{}
-
-\item{color}{}
-
 \item{zoom}{}
 }
 \value{

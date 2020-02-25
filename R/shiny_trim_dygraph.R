@@ -1,30 +1,21 @@
 #' Trim trap grouped4r file in shiny
 #'
-#' @param trap_selected_obs 
+#' @param trap_selected_obs
 #'
 #' @return
 #' @export
 #'
 #' @examples
-shiny_trim_dygraph <- function(trap_selected_obs){
+shiny_trim_dygraph <- function(trap_selected_obs, trap_grouped_file, input_dygraph_clean_shave_date_window_1, input_dygraph_clean_shave_date_window_2){
 
+from <- input_dygraph_clean_shave_date_window_1 * 5000
+to <- input_dygraph_clean_shave_date_window_2 * 5000
 
-curr_obs <- trap_selected_obs()$path
+trimmed <- trap_grouped_file[-c(from:to),]
 
-grouped_file <- list.files(current_obs, pattern = "grouped4r", full.names = TRUE)
-
-grouped_trim_down <- read_tsv(grouped_file,
-                              col_names = c("bead", "trap"))
-
-nrows_group <- 1:nrow(grouped_trim_down)
-
-trim_from <- which.min(abs(grouped_trim_down-input$dygraph_clean_shave_date_window[[1]])) 
-trim_to <- which.min(abs(grouped_trim_down-input$dygraph_clean_shave_date_window[[2]])) 
-
-trimmed_tib <- slice(grouped_trim_down, trim_from:trim_to)
-
-write_tsv(data = trimmed_tib,
-          path = paste0(curr_obs, "/", "grouped4r.txt"),
-          col_names =FALSE)
+write_tsv(trimmed,
+          path = paste0(trap_selected_obs$path, "/", "grouped.txt"),
+          col_names =FALSE,
+          append = FALSE)
 
 }

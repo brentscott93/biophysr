@@ -2,7 +2,7 @@
 % Please edit documentation in R/squysh_time.R
 \name{squysh_time}
 \alias{squysh_time}
-\title{Wrapper for Sys.time and removes all punctuation}
+\title{Prints the system date/time in only numbers (no spaces or punctuation)}
 \usage{
 squysh_time()
 }
@@ -10,5 +10,5 @@ squysh_time()
 
 }
 \description{
-Wrapper for Sys.time and removes all punctuation
+Prints the system date/time in only numbers (no spaces or punctuation)
 }

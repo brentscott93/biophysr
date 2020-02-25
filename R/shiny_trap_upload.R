@@ -34,6 +34,6 @@ withProgress(message = 'Uploading trap data', value = 0, max = 1, min = 0, {
   incProgress(1, detail = "Done")
 })
 
-showNotification("Trap Data Uploaded", type = "message", duration = NULL)
+showNotification("Trap Data Uploaded", type = "message")
 
 }

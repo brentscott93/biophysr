@@ -15,8 +15,11 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
 
     incProgress(amount = .25, detail = "Reading Data")
 
-    f <- list.files(trap_selected_date, pattern = "*.txt")
-    txts <- purrr::map(f, read_tsv, col_names = FALSE)
+    file_tibble <- tibble(name = list.files(trap_selected_date, pattern = "Data", full.names = FALSE),
+                          path = list.files(trap_selected_date, pattern = "Data", full.names = TRUE))
+
+
+    txts <- purrr::map(file_tibble$path, read_tsv, col_names = FALSE)
 
     incProgress(amount = .4, detail = "Determining Observations")
     # writeLines("Creating Observations")
@@ -41,7 +44,7 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
 
 
     cutoff <- as.numeric(threshold)/60
-    extract_numbers <- purrr::map(f, str_trap)
+    extract_numbers <- purrr::map(file_tibble$name, str_trap)
     dif2 <- vector("list") #for troubleshooting
     diff_vector <- vector()
     for(i in seq_along(extract_numbers[-length(extract_numbers)])){
@@ -115,7 +118,7 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
       } else {
         dir.create(paste0(trap_selected_date,"/obs_", r))
       }
-      obs_file_names[[r]] <- f[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
+      obs_file_names[[r]] <- file_tibble$name[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
     }
 
 
@@ -144,12 +147,12 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
     for(c in seq_along(create_obs)){
       if(c < 10){
         write_tsv(create_obs[[c]],
-                    path = paste0(trap_selected_date, "/obs_0", c, "/", "grouped4r.txt"),
+                    path = paste0(trap_selected_date, "/obs_0", c, "/", "grouped.txt"),
                     col_names = FALSE)
 
       } else {
         write_tsv(create_obs[[c]],
-                    file = paste0(trap_selected_date, "/obs_", c, "/", "grouped4r.txt"),
+                    path = paste0(trap_selected_date, "/obs_", c, "/", "grouped.txt"),
                     col_names = FALSE)
 
       }
@@ -158,6 +161,8 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
 
     incProgress(1, detail = "Done")
   })
+
+  showNotification("Obsevations created.", type = "message")
 }
 
 
