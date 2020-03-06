@@ -15,28 +15,41 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
     incProgress(amount = .01, detail = "Reading Data")
 
 
-    setwd(parent_dir)
+    #setwd(parent_dir)
 
-    observation_folders <- list.files(trap_selected_date, pattern = "obs")
-    grouped4r_files <- list.files(trap_selected_date, pattern = "grouped4r.txt", recursive = TRUE)
-    directions <- list.files(trap_selected_date, pattern = "directions.csv")
+    observation_folders <- drop_dir(trap_selected_date) %>%
+      dplyr::filter(str_detect(name, "obs")) %>%
+      pull(name)
 
-    read_directions <- suppressMessages(read_csv(directions)) %>%
+    grouped4r_files <- drop_dir(trap_selected_date, recursive = TRUE) %>%
+      dplyr::filter(str_detect("grouped")) %>%
+      pull(path_display)
+
+    directions <- drop_dir(trap_selected_date) %>%
+      dplyr::filter(name == "directions.csv") %>%
+      pull(path_display)
+
+    read_directions <- suppressMessages(drop_read_csv(directions)) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files) %>%
       filter(include == "yes")
 
 
-    read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
+    read_directions$baseline_start_sec <- if(baseline_start_sec == 0){
+                                            1/5000
+                                           } else {
+                                           read_directions$baseline_start_sec*5000
+                                           }
+
     read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
 
     #create results folders for output
     results_folder <- paste0(trap_selected_date, "/results")
-    dir.create(results_folder)
+    drop_create(results_folder)
     events_folder <- paste0(trap_selected_date, "/results/events")
-    dir.create(events_folder)
+    drop_create(events_folder)
     plots_folder <- paste0(trap_selected_date, "/results/plots")
-    dir.create(plots_folder)
+    drop_create(plots_folder)
 
     error_file <- file("log.txt", open = "a")
     writeLines(paste0("Mini-ensemble anlaysis performed on ", Sys.time(), "\n"), error_file)
@@ -50,7 +63,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
         report[[folder]] <- paste0("failed_to_initialize!_", read_directions$folder[[folder]])
 
         #Load data and convert mV to nm
-        dat <- read_tsv(read_directions$grouped_file[[folder]], col_names = c("bead", "trap")) %>%
+        dat <- drop_read_csv(read_directions$grouped_file[[folder]]) %>%
           mutate(nm_converted = bead*mv2nm) %>%
           dplyr::pull(nm_converted)
 
@@ -211,13 +224,16 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
 
         incProgress(detail = paste("Identified", nrow(final_events), "events in", length(dat)/5000, "seconds"))
-        write_csv(final_events, file = paste0(events_folder,
+
+        temp_final_events <- write_temp_csv(final_events, file = paste0(events_folder,
                                               "/",
                                               read_directions$condition[[folder]],
                                               "_",
                                               read_directions$folder[[folder]],
                                               "_",
                                               "mini_ensemble_events.csv"))
+
+        drop_upload(temp_final_events, path = events_folder)
 
         #plot
        # filter_final_events1 <- filter(final_events_4_plot, end_s2 < 20000)
@@ -235,7 +251,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
         #save dygraph data
 
-        temp_dir <-  chartr("\\", "/", paste0(tempdir(), "/", squysh_time(),"_", read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))
+        temp_dir <-  paste0(tempdir(), "/", squysh_time(),"_", read_directions$condition[[folder]], "_", read_directions$folder[[folder]])
 
         dir.create(temp_dir)
 
@@ -340,13 +356,15 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
                                          "_",
                                          read_directions$folder[[folder]],
                                          "_dygraph.R"),
-                          output_file = paste0(plots_folder,
-                                               "/",
-                                               read_directions$condition[[folder]],
-                                               "_",
-                                               read_directions$folder[[folder]],
-                                               "_plots.html"),
                           envir = new.env())
+
+        drop_upload(paste0(temp_dir,
+                           "/",
+                           read_directions$condition[[folder]],
+                           "_",
+                           read_directions$folder[[folder]],
+                           "_dygraph.html"),
+                    path = plots_folder)
 
         report[[folder]] <- paste0("success!_", read_directions$folder[[folder]])
 
@@ -362,7 +380,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
     close(error_file)
 
-    export_directions <- read_csv(directions) %>%
+    export_directions <- drop_read_csv(directions) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files)
 
@@ -373,13 +391,18 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
       arrange(folder) %>%
       dplyr::select(-starts_with("grouped_file"))
 
-    write_csv(success_report, path = paste0(trap_selected_date, "/directions.csv"), append = FALSE)
+   success_report_path <-  write_temp_csv(success_report, filename = "directions.csv")
 
+    drop_delete(directions)
+
+    drop_upload(success_report_path, path = trap_selected_date)
 
    incProgress(1, detail = "Done!")
 
   }) #close withProgress
 
-  showNotification("Mini-ensemble analysis complete. Results saved to 'biophysr' folder in 'Box Sync'.",
-                   type = "message", duration = NULL)
+  sendSweetAlert(session = session,
+                title =  "Mini-ensemble analysis complete",
+                text = "Results saved to Dropbox",
+                   type = "success")
   }

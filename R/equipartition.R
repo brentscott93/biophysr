@@ -20,8 +20,3 @@ equipartition <- function(data){
 }
 
 
-x <- 10e3
-y <- 1.23*1e3
-
-x==y
-y

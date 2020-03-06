@@ -1,3 +1,5 @@
+library(rdrop2)
+
 inactivity <- "function idleTimer() {
 var t = setTimeout(logout, 120000);
 window.onmousemove = resetTimer; // catches mouse movements
@@ -20,11 +22,15 @@ idleTimer();"
 
 # data.frame with credentials info
 credentials <- data.frame(
-  user = c("bscott", "mwoodward", "cmarang"),
-  password = c("bscott", "mwoodward", "cmarang"),
-  comment = c("logged in as bscott", "logged in as mwoodward", "logged in as cmarang"),
+  user = c("bscott", "mwoodward", "cmarang", "kpatwari"),
+  password = c("bscott", "mwoodward", "cmarang", "kpatwari"),
+  comment = c("logged in as bscott", "logged in as mwoodward", "logged in as cmarang", "logged in as kpatwari"),
   stringsAsFactors = FALSE
 )
 
+#authorize dropbox
 
 
+drop_auth(rdstoken = "dropbox_token.rds")
+#drop_auth(rdstoken = "inst/shiny/dropbox_token.rds")
+#drop_dir()

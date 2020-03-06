@@ -11,9 +11,6 @@ drive_make_trap_observations_shiny <- function(date_folder){
 
   withProgress(message = 'Making Observations', value = 0, max = 1, min = 0, {
 
-    #writeLines("Reading Data")
-   # setwd(wd)
-    #dir.create(paste0(wd, "/", "observations"))
 
     incProgress(amount = .25, detail = "Reading Data")
 
@@ -22,13 +19,6 @@ drive_make_trap_observations_shiny <- function(date_folder){
 
 
 
-
-   # gsheets <- vector("list")
-   # for(i in seq_along(trap_txts)){
-   #   gsheets[[i]] <-  trap_txts[[i]] %>% dplyr::select(V1)
-  #  }
-
-  #  names(gsheets) <- trap_txts_names
 
 
     incProgress(amount = .4, detail = "Determining Observations")

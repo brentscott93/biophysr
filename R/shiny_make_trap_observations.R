@@ -7,19 +7,32 @@
 #' @export
 #'
 #' @examples
-shiny_make_trap_observations <- function(trap_selected_date, threshold){
+shiny_make_trap_observations <- function(trap_selected_date, threshold, cal_files = FALSE){
 
   withProgress(message = 'Making Observations', value = 0, max = 1, min = 0, {
-
-    #writeLines("Reading Data")
-
     incProgress(amount = .25, detail = "Reading Data")
 
-    file_tibble <- tibble(name = list.files(trap_selected_date, pattern = "Data", full.names = FALSE),
-                          path = list.files(trap_selected_date, pattern = "Data", full.names = TRUE))
+    all_files <- drop_dir(trap_selected_date) %>%
+      arrange(name)
+
+    if(cal_files == TRUE){
+    cal_files <- all_files %>%
+      dplyr::filter(str_detect(name, "Equi") | str_detect(name, "Step"))
+
+    cal_folder_name <- paste0(trap_selected_date, "/cal")
+
+    drop_create(cal_folder_name)
+
+    cal_new_files_path <- paste0(cal_folder_name,"/", cal_files$name)
+
+    map2(cal_files$path_display, cal_new_files_path, drop_move)
+    }
 
 
-    txts <- purrr::map(file_tibble$path, read_tsv, col_names = FALSE)
+    file_tibble <- all_files %>%
+      dplyr::filter(str_detect(name, "Data"))
+
+    txts <- purrr::map(file_tibble$path_lower, drop_read_csv)
 
     incProgress(amount = .4, detail = "Determining Observations")
     # writeLines("Creating Observations")
@@ -108,15 +121,15 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
       bind_cols()
 
     incProgress(.7, detail = "Arranging Folders")
-    writeLines("Arranging Folders")
+
     obs_file_names <- vector("list")
     #make new folders
     for(r in 1:nrow(diff_tibble2)){
 
       if(r < 10){
-        dir.create(paste0(trap_selected_date, "/obs_0", r))
+        drop_create(paste0(trap_selected_date, "/obs_0", r))
       } else {
-        dir.create(paste0(trap_selected_date,"/obs_", r))
+        drop_create(paste0(trap_selected_date,"/obs_", r))
       }
       obs_file_names[[r]] <- file_tibble$name[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
     }
@@ -127,11 +140,11 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
     for(o in seq_along(obs_file_names)){
       for(file in seq_along(obs_file_names[[o]])){
         if(o < 10){
-          file.rename(from = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to = paste0(trap_selected_date, "/obs_0", o, "/", obs_file_names[[o]][[file]]))
+          drop_move(from_path =  paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
+                      to_path = paste0(trap_selected_date, "/obs_0", o, "/", obs_file_names[[o]][[file]]))
         } else {
-          file.rename(from = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to = paste0(trap_selected_date, "/obs_", o, "/", obs_file_names[[o]][[file]]))
+          drop_move(from_path = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
+                      to_path = paste0(trap_selected_date, "/obs_", o, "/", obs_file_names[[o]][[file]]))
         }
       }}
 
@@ -146,15 +159,12 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
     # writeLines("Saving Data")
     for(c in seq_along(create_obs)){
       if(c < 10){
-        write_tsv(create_obs[[c]],
-                    path = paste0(trap_selected_date, "/obs_0", c, "/", "grouped.txt"),
-                    col_names = FALSE)
+       temp_grouped <-  write_temp_csv(create_obs[[c]], "grouped.csv",   col_names = TRUE)
+       drop_upload(temp_grouped, path = paste0(trap_selected_date, "/obs_0", c))
 
       } else {
-        write_tsv(create_obs[[c]],
-                    path = paste0(trap_selected_date, "/obs_", c, "/", "grouped.txt"),
-                    col_names = FALSE)
-
+        temp_grouped <-  write_temp_csv(create_obs[[c]], "grouped.csv",   col_names = TRUE)
+        drop_upload(temp_grouped, path = paste0(trap_selected_date, "/obs_", c))
       }
     }
 
@@ -162,7 +172,7 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold){
     incProgress(1, detail = "Done")
   })
 
-  showNotification("Obsevations created.", type = "message")
+  showNotification("Obsevations created")
 }
 
 

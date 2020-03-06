@@ -11,7 +11,7 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
   #make destination folder
   withProgress(message = 'Moving Files', value = 0, max = 1, min = 0, {
 
-  number_obs <- length(trap_obs)
+  number_obs <- nrow(trap_obs)
 
   new_obs <- number_obs + 1
 
@@ -21,9 +21,9 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
     new_folder <- paste0("obs_", new_obs)
   }
 
-  new_folder_path <- paste0(trap_selected_date$path, "/", new_folder)
+  new_folder_path <- paste0(trap_selected_date, "/", new_folder)
   incProgress(amount = .25, detail = "Creating new folder")
-  dir.create(path = new_folder_path)
+  drop_create(path = new_folder_path)
 
   #identify folders on drive and move
   start_of_file_indices <- seq(0,
@@ -46,26 +46,40 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
 
   to_index <- which(end_of_file_indices == move_files_to)
 
-  files_to_move <- dplyr::slice(trap_files, from_index:to_index) %>%
-    dplyr::pull(path)
+  files_to_move <- dplyr::slice(trap_files, from_index:to_index)
+
+  files_to_move_paths <- files_to_move %>%
+    dplyr::pull(path_display)
+
+  files_to_move_names <-  files_to_move %>%
+    dplyr::pull(name)
+
+  new_files_names <- paste0(new_folder_path, "/", files_to_move_names)
 
   incProgress(amount = .75, detail = "Moving files")
 
-  purrr::map(files_to_move, move_files, destinations = new_folder_path)
+  purrr::map2(files_to_move_paths, new_files_names, drop_move)
 
-  new_paths <- list.files(new_folder_path, pattern = "Data", full.names = TRUE)
+  new_paths <- drop_dir(new_folder_path) %>%
+    dplyr::filter(str_detect(name, "Data")) %>%
+    dplyr::pull(path_display)
 
-  new_obs_files <- bind_rows(map(new_paths, read_tsv, col_names = FALSE))
+  new_obs_files <- bind_rows(map(new_paths, drop_read_csv))
 
-  write_tsv(new_obs_files, path = paste0(new_folder_path, "/grouped.txt"), col_names = FALSE)
+  new_obs_grouped <- write_temp_csv(new_obs_files, filename = "grouped.csv")
+
+  drop_upload(new_obs_grouped, format_dropbox_path(new_folder_path))
 
   #regroup current observation after desired files moved out
 
-  existing_files <- list.files(trap_selected_obs$path, pattern = "Data", full.names = TRUE)
+  existing_files <- drop_dir(trap_selected_obs) %>%
+    dplyr::filter(str_detect(name, "Data"))
 
-  regroup <- bind_rows(map(existing_files, read_tsv, col_names = FALSE))
+  regroup <- bind_rows(map(existing_files$path_display, drop_read_csv))
 
-  write_tsv(regroup, path = paste0(trap_selected_obs$path, "/grouped.txt"), col_names = FALSE, append = FALSE)
+  temp_csv <-  write_temp_csv(regroup, filename = "grouped.csv")
+
+  drop_upload(temp_csv, format_dropbox_path(trap_selected_obs))
 
 
   incProgress(1, detail = "Done")
@@ -73,3 +87,5 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
   showNotification("Files moved to new obs.", type = "message")
 
 }
+
+

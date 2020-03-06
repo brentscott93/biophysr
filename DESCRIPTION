@@ -1,10 +1,10 @@
 Package: biophysr
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Analysis tools for muscle biophysics
 Version: 0.1.0
 Author: Brent Scott
-Maintainer: The package maintainer <brentscott93@gmail.com>
-Description: Automation of data analysis for the UMass Muscle Biophysics Lab. 
+Maintainer: The package maintainer <biophysr@gmail.com>
+Description: This package was created to automate data analysis for biophysical data including the in vitro motility and laser trap assays.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
@@ -16,11 +16,19 @@ Imports:
 	colourpicker, 
 	gtools, 
 	gridExtra,
-	readr, 
-	readxl, 
-	zoo, 
 	pracma,
 	knitr, 
 	rmarkdown, 
 	drc,
-	tidyverse
+	tidyverse, 
+    shinyWidgets,
+    shinyjs,
+    shinymanager,
+    shinycssloaders,
+    dygraphs,
+    plotrix,
+    rhandsontable,
+    RColorBrewer,
+    filesstrings,
+    clipr,
+    depmixS4

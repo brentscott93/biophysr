@@ -61,9 +61,12 @@ step_cal <- function(vector, step){
 
   raw <- ggplot()+
     geom_line(data= as.data.frame(data), aes(x = 1:length(data), y = data))+
-    geom_line(data = as.data.frame(run_mean), aes(x = 1:length(run_mean), y = run_mean), color = "red")+
-    geom_line(aes(x = xdat1, y = meanr[[1]]), color = "yellow")+
-    geom_line(aes(x = xdat2, y = meanr[[2]]), color = "yellow")+
+    geom_line(data = as.data.frame(run_mean), aes(x = 1:length(run_mean), y = run_mean), color = "deepskyblue3")+
+    geom_line(aes(x = xdat1, y = meanr[[1]]), color = "green2", size = 1)+
+    geom_line(aes(x = xdat2, y = meanr[[2]]), color = "green2", size = 1)+
+    xlab("Datapoints")+
+    ylab("mV")+
+    ggtitle(paste0(abs(round(conversion, 2)), "nm/mV"))+
     theme_bw()
 
 
@@ -72,6 +75,8 @@ step_cal <- function(vector, step){
     geom_line(aes(x = 1:length(slopes), y = slopes))+
     scale_x_continuous(limits = c(0, length(data)))+
     geom_point(aes(x = peakr, y = slopes[peakr]),shape = "triangle", color = "green", size = 3)+
+    xlab("Datapoints")+
+    ylab("Slope")+
     theme_bw()
 
 

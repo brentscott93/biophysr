@@ -18,7 +18,7 @@ group_files <- function(){
     return(x)
   }
   
-  folder <- pathPrep()
+  folder <- enquo(pathPrep())
   
   files <- list.files(folder, full.names = TRUE)
   
