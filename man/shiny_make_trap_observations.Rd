@@ -4,7 +4,12 @@
 \alias{shiny_make_trap_observations}
 \title{Make Trap Observations}
 \usage{
-shiny_make_trap_observations(trap_selected_date, threshold, cal_files = FALSE)
+shiny_make_trap_observations(
+  input_data,
+  trap_selected_date,
+  threshold,
+  cal_files = FALSE
+)
 }
 \arguments{
 \item{txts}{}

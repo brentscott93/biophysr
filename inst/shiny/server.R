@@ -1,6 +1,7 @@
 # START SERVER
 
 server = function(input, output, session) {
+  options(shiny.maxRequestSize=30*1024^2)
 
     result_auth <- secure_server(check_credentials = check_credentials(credentials))
 
@@ -47,11 +48,14 @@ rv <- reactiveValues()
     #find users dropbox folder
     current_user <- reactive({ result_auth$user })
 
+
     users_biophysr_folder <- reactive({
+      #get path to home, look into Box Sync folder for user
 
-        user_path <- paste0("biophysr_data_storage/", current_user())
+      box_sync <- "~/Box Sync/Muscle Biophysics Lab/Data/biophysr/"
+      user_path <- paste0(box_sync, current_user())
 
-        return(user_path)
+      return(user_path)
     })
 
 
@@ -82,7 +86,7 @@ rv <- reactiveValues()
     observeEvent(input$trap_create_project_actionButton,{
         withProgress(message = "Creating Folder", min= 0, max = 1, value = 50, {
             new_trap_project_name <- paste0("project_", input$trap_create_project_textInput)
-            drop_create(path = paste0(users_biophysr_folder(), "/trap/", new_trap_project_name))
+            dir.create(path = paste0(users_biophysr_folder(), "/trap/", new_trap_project_name))
             incProgress(1)
         })
         showNotification("Project folder created", type = "message")
@@ -93,7 +97,7 @@ rv <- reactiveValues()
     rv$new_trap_condition <- 0
     observeEvent(input$trap_create_conditions_actionButton,{
         withProgress(message = "Creating Folder", min= 0, max = 1, value = 50, {
-            drop_create(path = paste0(trap_selected_project()$path_display,"/",input$trap_create_conditions_textInput))
+            dir.create(path = paste0(trap_selected_project()$path,"/",input$trap_create_conditions_textInput))
             incProgress(1)
         })
         showNotification("Condition folder created", type = "message")
@@ -105,7 +109,7 @@ rv <- reactiveValues()
     rv$new_trap_date <- 0
     observeEvent(input$trap_create_date_actionButton,{
         withProgress(message = "Creating Folder", min= 0, max = 1, value = 50, {
-            drop_create(path = paste0(trap_selected_conditions()$path_display,"/",input$trap_create_date_textInput))
+            dir.create(path = paste0(trap_selected_conditions()$path,"/",input$trap_create_date_textInput))
             incProgress(1)
         })
         showNotification("Date folder created", type = "message")
@@ -120,8 +124,8 @@ rv <- reactiveValues()
 
     #list project folders
     project_names <- eventReactive(rv$new_trap_project,{
-        projects <- drop_dir(path = paste0(users_biophysr_folder(), "/trap")) %>%
-            dplyr::filter(.tag == "folder")
+        projects <- list_dir(path = paste0(users_biophysr_folder(), "/trap"))
+
 
         return(projects)
 
@@ -156,7 +160,7 @@ rv <- reactiveValues()
 
 
     conditions_names <- reactive({
-        drop_dir(path = trap_selected_project()$path_display)
+        list_dir(path = trap_selected_project()$path)
 
 
     })
@@ -182,7 +186,7 @@ rv <- reactiveValues()
 
     observeEvent(rv$new_trap_condition, ignoreNULL = TRUE, ignoreInit = TRUE, {
 
-        update_conditions <- drop_dir(trap_selected_project()$path_display)
+        update_conditions <- list_dir(trap_selected_project()$path)
 
 
         updateSelectizeInput(session, 'trap_conditions_selectInput',
@@ -194,7 +198,7 @@ rv <- reactiveValues()
     #4 selected condition
     trap_selected_conditions <-  reactive({
 
-        full_paths_con <-drop_dir(trap_selected_project()$path_display)
+        full_paths_con <- list_dir(trap_selected_project()$path)
 
 
         user_selection_con <- full_paths_con %>%
@@ -212,7 +216,7 @@ rv <- reactiveValues()
 
     #1 list of date names
     trap_date_names <- reactive({
-        drop_dir(trap_selected_conditions()$path_display)
+        list_dir(trap_selected_conditions()$path)
 
     })
 
@@ -237,7 +241,7 @@ rv <- reactiveValues()
 
     observeEvent(rv$new_trap_date, ignoreNULL = TRUE, ignoreInit = TRUE, {
 
-        update_date <- drop_dir(trap_selected_conditions()$path_display)
+        update_date <- list_dir(trap_selected_conditions()$path)
 
 
         updateSelectizeInput(session, 'trap_date_selectInput',
@@ -248,7 +252,7 @@ rv <- reactiveValues()
     #4 selected date dribble
     trap_selected_date <-  reactive({
 
-        full_paths_date <- drop_dir(trap_selected_conditions()$path_display)
+        full_paths_date <- list_dir(trap_selected_conditions()$path)
 
         user_selection_date <- full_paths_date %>%
             dplyr::filter(name == input$trap_date_selectInput)
@@ -262,7 +266,7 @@ rv <- reactiveValues()
     #OBS
     #1 list of obs names
     trap_obs <- reactive({
-        drop_dir(trap_selected_date()$path_display) %>%
+        list_dir(trap_selected_date()$path) %>%
             dplyr::filter(str_detect(name, "obs_"))
 
 
@@ -282,7 +286,7 @@ rv <- reactiveValues()
     # selected obs dribble
     trap_selected_obs <-  reactive({
 
-        drop_dir(trap_selected_date()$path_display)%>%
+        list_dir(trap_selected_date()$path)%>%
             dplyr::filter(name == input$trap_obs_selectInput)
 
     })
@@ -290,7 +294,7 @@ rv <- reactiveValues()
     #files
     #1 tibble of file names
     trap_files <- reactive({
-        drop_dir(trap_selected_obs()$path_display) %>%
+         list_dir(trap_selected_obs()$path) %>%
             dplyr::filter(str_detect(name, "Data"))
     })
 
@@ -311,11 +315,11 @@ rv <- reactiveValues()
                              type = "error")
         } else {
 
-            req(nchar(trap_selected_date()$path_display>0))
-            biophysr::shiny_make_trap_observations(trap_selected_date = format_dropbox_path(trap_selected_date()$path_display),
+            req(nchar(trap_selected_date()$path>0))
+            biophysr::shiny_make_trap_observations(input_data = input$trap_txt_upload,
+                                                    trap_selected_date = trap_selected_date()$path,
                                                    threshold = input$make_observations_numericInput,
                                                    cal_files = input$trap_cal_files)
-            rv$trap_cal <- rv$trap_cal + 1
         }
 
     })
@@ -324,21 +328,19 @@ rv <- reactiveValues()
     #------------------------------------------------------------------------------------------------------------
     #Start trap calibrations
 
-    rv$trap_cal <- 0
-    equi_cal <- eventReactive(rv$trap_cal, {
+
+    equi_cal <- eventReactive(input$trap_cal_actionButton, {
       req(input$trap_cal_files == TRUE)
       withProgress(message = "Equipartition Calibration", min= 0, max = 1, value = 0.01, {
         incProgress(0.25, detail = "Reading Data")
-       files <- drop_dir(path = paste0(trap_selected_date()$path_display, "/cal")) %>%
+       files <- list_files(path = paste0(trap_selected_date()$path, "/cal")) %>%
          filter(str_detect(name, "Equi"))
        incProgress(0.75, detail = "Calculation")
-       read_equi <- map(files$path_display, drop_read_csv) %>%
+       read_equi <- map(files$path, read_csv) %>%
          bind_rows %>%
          pull(bead)
 
        cal1 <-  equipartition(read_equi)
-
-       rv$step_cal <- rv$step_cal + 1
 
       })
        return(cal1)
@@ -356,17 +358,17 @@ rv <- reactiveValues()
       )
     })
 
-    rv$step_cal <- 0
-    step_calibration <- eventReactive(rv$step_cal, {
+
+    step_calibration <- eventReactive(input$trap_cal_actionButton, {
       req(input$trap_cal_files == TRUE)
       withProgress(message = "Step Calibration", min= 0, max = 1, value = 0.01, {
-      step_files <- drop_dir(path = paste0(trap_selected_date()$path_display, "/cal")) %>%
+      step_files <- list_files(path = paste0(trap_selected_date()$path, "/cal")) %>%
         filter(str_detect(name, "Step"))
       incProgress(0.4, detail = "Reading Data")
-       files <- map(step_files$path_display, drop_read_csv) %>%
+       files <- map(step_files$path, read_csv) %>%
         map(pull, bead)
        incProgress(0.75, detail = "Calculating...This may take a while...")
-      steps <- map(files, step_cal, step = 50)
+      steps <- map(files, step_cal, step = input$step_cal_stepsize)
       incProgress(1, detail = "Done!")
       })
       return(steps)
@@ -405,10 +407,6 @@ rv <- reactiveValues()
     #------------------------------------------------------------------------------------------------------------
     #Start prepare/clean data
 
-    #print what folder user is working in
-    output$trap_clean_data_save_location <- renderText({
-        trap_selected_obs()$path_display
-    })
 
     rv$clean_dygraph <- 0
 
@@ -426,53 +424,78 @@ rv <- reactiveValues()
         ))
     })
 
-
+    rv$update_obs_input <- 0
     observeEvent(input$confirm_trap_move_sheets_actionButton, {
         removeModal()
-        shiny_move_trap(trap_selected_date = trap_selected_date()$path_display,
+        shiny_move_trap(trap_selected_date = trap_selected_date()$path,
                         trap_obs = trap_obs(),
                         trap_files = trap_files(),
-                        trap_selected_obs = trap_selected_obs()$path_display,
+                        trap_selected_obs = trap_selected_obs()$path,
                         dygraph_clean_date_window_1 = input$dygraph_clean_date_window[[1]],
                         dygraph_clean_date_window_2 = input$dygraph_clean_date_window[[2]])
 
-        #rv$update_graph <- rv$update_graph + 1
+        rv$update_obs_input <- rv$update_obs_input + 1
     })
 
 
+    observeEvent(rv$update_obs_input, ignoreNULL = TRUE, ignoreInit = TRUE, {
 
-    trap_grouped_file <-  eventReactive(input$trap_clean_show_graph_actionButton, {
+      update_obs <- list_dir(trap_selected_obs()$path)
 
-        current_obs <- trap_selected_obs()$path_display
 
-        grouped_file <- drop_dir(current_obs) %>%
+      updateSelectizeInput(session, 'trap_obs_selectInput',
+                           'Select Obs', choices = c(Choose='', "Create New..." = "create", update_obs$name))
+
+    })
+
+    trap_grouped_file <-  eventReactive(input$trap_load_clean_graph_actionButton, {
+
+        current_obs <- trap_selected_obs()$path
+
+        grouped_file <- list_files(current_obs) %>%
           dplyr::filter(str_detect(name, "grouped")) %>%
-          dplyr::pull(path_display)
+          dplyr::pull(path)
 
-        gf <- drop_read_csv(grouped_file)
+        gf <- read_csv(grouped_file)
 
-        rv$clean_dygraph <- rv$clean_dygraph + 1
-
+        showNotification("Grouped file loaded")
         return(gf)
 
+
+
     })
 
 
-    output$trap_filter <- renderUI({
+     output$trap_filter <- renderUI({
 
-        sliderInput("trap_filter_sliderInput",
+       sliderInput("trap_filter_sliderInput",
                     label = "Filter large dataset",
-                    value = c(0, nrow(trap_grouped_file())),
-                    min = 0,
-                    max = nrow(trap_grouped_file())/5000,
-                    width = "100%")
-    })
+                     value = c(0, nrow(trap_grouped_file())),
+                 min = 0,
+                   max = nrow(trap_grouped_file())/5000,
+                 width = "100%")
+     })
+
+
+
 
     #dygraph clean and shave
-    dygraph_clean <- eventReactive(rv$clean_dygraph,{
+    dygraph_clean <- eventReactive(input$trap_clean_show_graph_actionButton,{
 
-        data <- tibble(seconds = 1:nrow(trap_grouped_file())/5000,
-                       bead = trap_grouped_file()$bead)
+
+      data1 <- tibble(seconds = 1:nrow(trap_grouped_file())/5000,
+                     bead = trap_grouped_file()$bead)
+
+
+     trap_filter1 <-  if(input$trap_filter_sliderInput[[1]] == 0){
+      1/5000
+     } else {
+       input$trap_filter_sliderInput[[1]]*5000
+     }
+
+     trap_filter2 <-  input$trap_filter_sliderInput[[2]]*5000
+
+    data <- data1[c(trap_filter1:trap_filter2),]
 
 
         number_files <- nrow(data)/25000
@@ -518,6 +541,7 @@ rv <- reactiveValues()
 
 
         }
+
 
     })
 
@@ -647,20 +671,27 @@ rv <- reactiveValues()
 
     observeEvent(input$confirm_trap_trim_dygraph_actionButton, {
         removeModal()
-        shiny_trim_dygraph(trap_selected_obs = trap_selected_obs()$path_display,
+        shiny_trim_dygraph(trap_selected_obs = trap_selected_obs()$path,
                            trap_grouped_file = trap_grouped_file(),
                            input_dygraph_clean_shave_date_window_1 = input$dygraph_clean_date_window[[1]],
                            input_dygraph_clean_shave_date_window_2 =input$dygraph_clean_date_window[[2]])
         showNotification("Data trimmed. Please refresh graph.")
     })
 
-    #make new directions when button is pressed
+    #make new list_directions when button is pressed
     new_directions <-eventReactive(input$trap_new_directions_actionButton, {
-        data <- tibble("Observation" = 1:nrow(trap_obs()),
-                       "Baseline Start (seconds)" = rep("",nrow(trap_obs())),
-                       "Baseline Stop (seconds)" = rep("", nrow(trap_obs())),
-                       "Detrend" = rep("", nrow(trap_obs())),
-                       "Include" = rep("", nrow(trap_obs())))
+
+      dir_length <- list_dir(trap_selected_date()$path) %>%
+           dplyr::filter(str_detect(name, "obs")) %>%
+           nrow()
+
+     d <-  tibble("Observation" = 1:dir_length,
+             "Baseline Start (seconds)" = "",
+             "Baseline Stop (seconds)" = "",
+             "Detrend" = "",
+             "Include" = "")
+
+     return(d)
     })
 
 
@@ -683,8 +714,10 @@ rv <- reactiveValues()
 
     #save directions to 'obs' folder when save button pressed
     observeEvent(input$trap_save_directions_actionButton, {
-        directions_temp_path <- write_temp_csv(hot_to_r(input$trap_directions), filename = "directions.csv")
-        drop_upload(directions_temp_path, paste0(trap_selected_date()$path_diplay))
+         write_csv(hot_to_r(input$trap_directions),
+                                          path = paste0(trap_selected_date()$path,
+                                                        "/directions.csv"), append = FALSE)
+
         showNotification("Directions saved.", type = "message")
     })
 
@@ -700,7 +733,7 @@ rv <- reactiveValues()
                              type = "error")
         } else if(is_empty(trap_selected_date()) == FALSE){
 
-            biophysr::shiny_mini_ensemble_analyzer(trap_selected_date = trap_selected_date()$path_display,
+            biophysr::shiny_mini_ensemble_analyzer(trap_selected_date = trap_selected_date()$path,
                                                    mv2nm = as.numeric(input$manual_step_cal),
                                                    nm2pn = as.numeric(input$manual_step_stiffness),
                                                    run_mean_color = input$trap_color)
@@ -719,9 +752,9 @@ rv <- reactiveValues()
 
 
     #HMM analysis
-    hmm_analyzed <- observeEvent(input$hmm_action_button, {
+    hmm_analyzed <- observeEvent(input$analyze_trap, {
         req(!is.null(trap_selected_date()))
-        biophysr::shiny_hidden_markov_analysis(trap_selected_date = trap_selected_date()$path_display,
+        biophysr::shiny_hidden_markov_analysis(trap_selected_date = trap_selected_date()$path,
                                                mv2nm = as.numeric(input$mv2nm),
                                                nm2pn = as.numeric(input$nm2pn),
                                                overlay_color = input$trap_color,
@@ -730,10 +763,6 @@ rv <- reactiveValues()
 
 
 
-    output$hmm_analysis <- renderText({
-        hmm_analyzed()
-    })
-
 
     # End laser analyzers
     #------------------------------------------------------------------------------------------------------------
@@ -741,7 +770,7 @@ rv <- reactiveValues()
 
     #get dygraph names and path locations
     trap_dygraphs <- eventReactive(input$get_quality_check_data_actionButton, {
-        drop_dir(paste0(trap_selected_date()$path_display, "/results/plots"))
+        list_files(paste0(trap_selected_date()$path, "/results/plots"))
     })
 
     # make select input button with dygraph names
@@ -759,43 +788,35 @@ rv <- reactiveValues()
             filter(name == input$trap_quality_check_obs_selectInput)
     })
 
-    # observe({
-    #  addResourcePath("user", users_biophysr_folder())
-    # })
 
-
-
-
-    addResourcePath("temp", tempdir())
-
-
+    observe({
+      addResourcePath("user", users_biophysr_folder())
+    })
 
     analysis_report_source <- eventReactive(input$show_quality_check_graph_actionButton, {
 
-      withProgress(message = "Downloading Results", min= 0, max = 1, value = 0.1, {
-      time <- squysh_time()
-      download_location <- paste0(tempdir(), "/", time)
-      dir.create(download_location)
-      incProgress(0.5, detail = "Connected to dropbox. Large files may take a while...")
-      drop_download(paste0(trap_selected_date()$path_display, "/results/plots/", input$trap_quality_check_obs_selectInput),
-                    local_path = download_location)
-      incProgress(0.8, detail = "File Downloaded. Shiny app loading...")
+      paste0("user/trap/",
+             input$trap_project_selectInput,
+             "/",
+             input$trap_conditions_selectInput,
+             "/",
+             input$trap_date_selectInput,
+             "/",
+             "results/plots/",
+             input$trap_quality_check_obs_selectInput)
 
-      html_path <-  paste0("temp/", time, "/",
-               input$trap_quality_check_obs_selectInput)
-      })
-    return(html_path)
     })
+
     output$analysis_report <- renderUI({
         tags$iframe(frameborder = "no", src = analysis_report_source(), width="100%", height = "600px", scrolling = "auto")
     })
 
 
     update_directions <- eventReactive(input$get_quality_check_data_actionButton, {
-        dir_path <- drop_dir(trap_selected_date()$path_display) %>%
+        dir_path <- list_files(trap_selected_date()$path) %>%
           dplyr::filter(str_detect(name, "directions"))
 
-        dirs <- drop_read_csv(dir_path$path_display) %>%
+        dirs <- read_csv(dir_path$path) %>%
             dplyr::select(folder, report) %>%
             mutate('Quality Control' = FALSE)
 
@@ -816,9 +837,9 @@ rv <- reactiveValues()
 
     updated_directions_temp_path <- write_temp_csv(hot_to_r(input$update_directions()), filename = "directions.csv")
 
-    old_directions <- drop_dir(trap_selected_date()$path_display) %>%
+    old_directions <- list_files(trap_selected_date()$path) %>%
       dplyr::filter(name == "directions.csv")
-    drop_delete(old_directions$path_display)
+    drop_delete(old_directions$path)
 
     drop_upload(updated_directions_temp_path, paste0(trap_selected_date()$path_diplay))
     showNotification("Directions saved.", type = "message")

@@ -136,17 +136,9 @@ body <- dashboardBody(shinyDashboardThemes(
                               buttonLabel = "Browse...",
                               placeholder = "Select .txt"),
 
-
-
-                    h5("2) Move raw data to Dropbox"),
-
-                    actionButton(inputId = "trap_upload",
-                                 label = "Upload to Dropbox",
-                                 icon = icon("file-upload"),
-                                 width = "100%"),
                     br(),
                     br(),
-                    h5("3) Choose number of seconds to divide obs by"),
+                    h5("2) Choose number of seconds to divide obs by"),
                     knobInput(inputId = "make_observations_numericInput",
                               label = NULL,
                               value = 20,
@@ -154,7 +146,7 @@ body <- dashboardBody(shinyDashboardThemes(
                               max = 30),
 
 
-                    h5("4) Trap Calibration Files?"),
+                    h5("3) Trap Calibration Files?"),
                     switchInput(inputId = "trap_cal_files",
                                 label = NULL,
                                 value = FALSE,
@@ -164,7 +156,7 @@ body <- dashboardBody(shinyDashboardThemes(
                                 offStatus = "danger"),
 
 
-                    h5("5) Click button to make observations"),
+                    h5("4) Click button to make observations"),
                     actionButton(inputId = "make_observations_action_button",
                                  label = "Make Observations",
                                  icon = icon("eye"),
@@ -180,6 +172,33 @@ body <- dashboardBody(shinyDashboardThemes(
                 column(6,
                        box(title = "Calibration Plots",
                            width = NULL, collapsible = TRUE, collapsed = TRUE,
+                           dropdownButton(
+
+                             tags$h3("Trap Calibration"),
+
+                             sliderInput("step_cal_stepsize",
+                                         label = "Step Cal Step Size",
+                                         value = 50,
+                                         min = 0,
+                                         max = 100,
+                                         step = 10),
+                             actionButton(inputId = "trap_cal_actionButton",
+                                          label = "Calibrate Trap",
+                                          icon = icon("sliders")),
+
+                             circle = TRUE, status = "danger",
+                             icon = icon("gear"), width = "300px",
+
+                             tooltip = tooltipOptions(title = "Click to calibrate trap")
+                           ),
+
+
+
+
+
+
+
+
                            jqui_resizable(plotOutput("step_cal_plot")) %>% withSpinner(type = 6, color = "#373B38")
 
                        ) #box close
@@ -199,56 +218,87 @@ body <- dashboardBody(shinyDashboardThemes(
               #                     verbatimTextOutput("current_trap_date")
               #                 )
              #  )),
-             box(width = 12, title = "Toolbar",
+             fluidRow(
+             box(width = 8, title = "Graph Options",
                fluidRow(
-                   column(3,
+                   column(4,
 
                               h5("Select Obs"),
                               uiOutput("trap_obs")
 
                    ), #col close
+                   column(4,
+                          conditionalPanel(
+                            condition =  " input.trap_obs_selectInput != null &&
+                                              input.trap_obs_selectInput.length > 0 ",
+                            h5("Import grouped file"),
+                            actionButton("trap_load_clean_graph_actionButton",
+                                         label ="Load Data",
+                                         icon = icon("truck-loading"),
+                                         width = "100%"))),
 
-                   column(3,
+                   column(4,
+                          conditionalPanel(
+                            condition =  "   input.trap_obs_selectInput != null &&
+                                               input.trap_obs_selectInput.length > 0 ",
+                            h5("File Markers"),
+                            radioGroupButtons(
+                              inputId = "hide_markers",
+                              label = NULL,
+                              choices = c("Show" = "show",
+                                          "Hide" = "hide"),
+                              direction = "horizontal",
+                              width = "100%",
+                              justified = TRUE,
+                              checkIcon = list(
+                                yes = tags$i(class = "fa fa-check-square",
+                                             style = "color: black"),
+                                no = tags$i(class = "fa fa-square-o",
+                                            style = "color: black"))
+                            )
+
+                          ) #conditional close
+                   )#col close
+                   ),
+               #row close
+               fluidRow(
+                 column(8,
+                        conditionalPanel(
+                          condition = "input.trap_obs_selectInput != null &&
+                                         input.trap_obs_selectInput.length > 0 ",
+
+                          uiOutput("trap_filter"),
+
+                        ) # conditionalclose
+
+                 ), #col close
+
+                   column(4,
                           conditionalPanel(
                               condition =  " input.trap_obs_selectInput != null &&
                                               input.trap_obs_selectInput.length > 0 ",
                               h5("Display/Refresh Graph"),
-                              actionButton("trap_clean_show_graph_actionButton",
-                                           label ="Graph",
-                                           icon = icon("chart-line"),
-                                           width = "100%")
+                              actionBttn(
+                                inputId = "trap_clean_show_graph_actionButton",
+                                label = "Graph",
+                                style = "unite",
+                                block = TRUE,
+                                icon = icon("chart-line"),
+                                size = "lg",
+                                color = "success"
+                              )
+
+
                           )#conditional close
                    ), #col close
 
-                   column(2,
-                          conditionalPanel(
-                              condition =  "   input.trap_obs_selectInput != null &&
-                                               input.trap_obs_selectInput.length > 0 ",
-                              h5("File Markers"),
-                              radioButtons("hide_markers",
-                                           label = NULL,
-                                           choices = c("Show" = "show",
-                                                       "Hide" = "hide"),
-                                           inline = TRUE,
-                                           width = "100%")
-                          )#conditional close
-                   ), #col close
-                   column(4,
-                          conditionalPanel(
-                              condition = "input.trap_obs_selectInput != null &&
-                                         input.trap_obs_selectInput.length > 0 ",
-
-                              uiOutput("trap_filter")
-
-                          ) # conditionalclose
-
-                   ) #col close
+               )#fluid Row close
+               ), #boxclose
 
 
-               ), #row close
-
+          box(title = "Cleaning Tools", width = 4,
                fluidRow(
-                   column(4,
+                   column(12,
 
                           conditionalPanel(
                               condition = " input.trap_obs_selectInput != null &&
@@ -262,9 +312,11 @@ body <- dashboardBody(shinyDashboardThemes(
 
 
                           ) #conditional close
-                   ), #col close
-
-                   column(4,
+                   ) #col close
+               ) ,
+              br(),
+                fluidRow(
+                   column(12,
                           conditionalPanel(
                               condition = " input.trap_obs_selectInput != null &&
                                              input.trap_obs_selectInput.length > 0",
@@ -277,25 +329,13 @@ body <- dashboardBody(shinyDashboardThemes(
 
                           ) #conditional close
 
-                   ), #col close
+                   )#col close
+                   )#row close
 
 
-                   column(4,
 
-                          conditionalPanel(
-                              condition = " input.trap_obs_selectInput != null &&
-                                              input.trap_obs_selectInput.length > 0 ",
-
-                              textOutput("filter_text"),
-                              actionButton("filter_trap_grouped",
-                                           label = "Filter",
-                                           icon=icon("filter"),
-                                           width = "100%")
-                          ) #con close
-                   ) #col close
-
-               ) #row close
-             ),
+               ) #ox close
+       ),#row close
                br(),
 
 
@@ -382,7 +422,11 @@ body <- dashboardBody(shinyDashboardThemes(
                               rHandsontableOutput("trap_directions")
                           )
                    ) #col close
-               ) #row close
+               ),  #row close
+                br(),
+                br(),
+                br(),
+                br()
 
       # )#tab close
 
@@ -436,7 +480,7 @@ body <- dashboardBody(shinyDashboardThemes(
 
 
                   colourpicker::colourInput("trap_color", label = "Select color", showColour = "both"),
-                  actionButton(inputId = "analyze",
+                  actionButton(inputId = "analyze_trap",
                                label = "Analyze Trap",
                                icon = icon("microscope"),
                                width = "100%")

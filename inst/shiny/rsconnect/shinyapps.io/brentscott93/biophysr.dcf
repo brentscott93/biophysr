@@ -1,0 +1,13 @@
+name: biophysr
+title: biophysr
+username:
+account: brentscott93
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1915851
+bundleId: 2858507
+url: https://brentscott93.shinyapps.io/biophysr/
+when: 1583529216.4538
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .httr-oauth|myoV-S217A_pH7.0_Pi_obs_01_dygraph.html|www/.DS_Store

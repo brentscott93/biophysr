@@ -7,32 +7,56 @@
 #' @export
 #'
 #' @examples
-shiny_make_trap_observations <- function(trap_selected_date, threshold, cal_files = FALSE){
+shiny_make_trap_observations <- function(input_data, trap_selected_date, threshold, cal_files = FALSE){
 
+  #convert to csv and move to box sync
+  withProgress(message = 'Uploading trap data', value = 0, max = 1, min = 0, {
+
+    incProgress(amount = .3, detail = "Reading Files")
+
+    input_data <- arrange(input_data, name)
+
+    #READ
+    trap_txts <- map(input_data$datapath, read_tsv, col_names = c("bead", "trap"))
+
+    incProgress(amount = .6, detail = "Moving to 'Box Sync' folder")
+
+    new_csv_filename <-  map(input_data$name, str_replace, pattern = "txt", replacement = "csv")
+
+    box_name <- paste0(trap_selected_date, "/", new_csv_filename)
+
+    map2(trap_txts, box_name, write_csv, col_names = TRUE)
+
+    incProgress(1, detail = "Done")
+  })
+
+  showNotification("Trap Data Uploaded", type = "message")
+
+  #split obs
   withProgress(message = 'Making Observations', value = 0, max = 1, min = 0, {
     incProgress(amount = .25, detail = "Reading Data")
 
-    all_files <- drop_dir(trap_selected_date) %>%
+    all_files <-  list_files(trap_selected_date) %>%
       arrange(name)
 
     if(cal_files == TRUE){
-    cal_files <- all_files %>%
+    calibration_files <- all_files %>%
       dplyr::filter(str_detect(name, "Equi") | str_detect(name, "Step"))
 
     cal_folder_name <- paste0(trap_selected_date, "/cal")
 
-    drop_create(cal_folder_name)
+    dir.create(cal_folder_name)
 
-    cal_new_files_path <- paste0(cal_folder_name,"/", cal_files$name)
+    cal_new_files_path <- paste0(cal_folder_name,"/", calibration_files$name)
 
-    map2(cal_files$path_display, cal_new_files_path, drop_move)
+    map2(calibration_files$path, cal_new_files_path, file.rename)
     }
 
 
     file_tibble <- all_files %>%
       dplyr::filter(str_detect(name, "Data"))
 
-    txts <- purrr::map(file_tibble$path_lower, drop_read_csv)
+    txts <- purrr::map(file_tibble$path, read_csv)
 
     incProgress(amount = .4, detail = "Determining Observations")
     # writeLines("Creating Observations")
@@ -127,9 +151,9 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold, cal_file
     for(r in 1:nrow(diff_tibble2)){
 
       if(r < 10){
-        drop_create(paste0(trap_selected_date, "/obs_0", r))
+        dir.create(paste0(trap_selected_date, "/obs_0", r))
       } else {
-        drop_create(paste0(trap_selected_date,"/obs_", r))
+        dir.create(paste0(trap_selected_date,"/obs_", r))
       }
       obs_file_names[[r]] <- file_tibble$name[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
     }
@@ -140,11 +164,11 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold, cal_file
     for(o in seq_along(obs_file_names)){
       for(file in seq_along(obs_file_names[[o]])){
         if(o < 10){
-          drop_move(from_path =  paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to_path = paste0(trap_selected_date, "/obs_0", o, "/", obs_file_names[[o]][[file]]))
+          file.rename(from =  paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
+                      to = paste0(trap_selected_date, "/obs_0", o, "/", obs_file_names[[o]][[file]]))
         } else {
-          drop_move(from_path = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to_path = paste0(trap_selected_date, "/obs_", o, "/", obs_file_names[[o]][[file]]))
+          file.rename(from = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
+                      to = paste0(trap_selected_date, "/obs_", o, "/", obs_file_names[[o]][[file]]))
         }
       }}
 
@@ -159,14 +183,31 @@ shiny_make_trap_observations <- function(trap_selected_date, threshold, cal_file
     # writeLines("Saving Data")
     for(c in seq_along(create_obs)){
       if(c < 10){
-       temp_grouped <-  write_temp_csv(create_obs[[c]], "grouped.csv",   col_names = TRUE)
-       drop_upload(temp_grouped, path = paste0(trap_selected_date, "/obs_0", c))
+
+       temp_grouped <-  write_csv(create_obs[[c]],
+                                  path = paste0(trap_selected_date, "/obs_0", c, "/grouped.csv"),
+                                  col_names = TRUE)
 
       } else {
-        temp_grouped <-  write_temp_csv(create_obs[[c]], "grouped.csv",   col_names = TRUE)
-        drop_upload(temp_grouped, path = paste0(trap_selected_date, "/obs_", c))
+
+        temp_grouped <-  write_csv(create_obs[[c]],
+                                   path = paste0(trap_selected_date, "/obs_", c, "/grouped.csv"),
+                                   col_names = TRUE)
+
       }
     }
+
+  #  dir_length <- list_dir(trap_selected_date) %>%
+   #   dplyr::filter(str_detect(name, "obs")) %>%
+   #   nrow()
+
+   # directions_template <- tibble("Observation" = 1:dir_length,
+                      #            "Baseline Start (seconds)" = "",
+                      #            "Baseline Stop (seconds)" = "",
+                      #             "Detrend" = "",
+                        #           "Include" = "")
+#
+   # write_csv(directions_template, path = paste0(trap_selected_date, "/directions.csv"), append = FALSE)
 
 
     incProgress(1, detail = "Done")

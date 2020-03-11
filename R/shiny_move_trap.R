@@ -23,7 +23,7 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
 
   new_folder_path <- paste0(trap_selected_date, "/", new_folder)
   incProgress(amount = .25, detail = "Creating new folder")
-  drop_create(path = new_folder_path)
+  dir.create(path = new_folder_path)
 
   #identify folders on drive and move
   start_of_file_indices <- seq(0,
@@ -49,7 +49,7 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
   files_to_move <- dplyr::slice(trap_files, from_index:to_index)
 
   files_to_move_paths <- files_to_move %>%
-    dplyr::pull(path_display)
+    dplyr::pull(path)
 
   files_to_move_names <-  files_to_move %>%
     dplyr::pull(name)
@@ -58,29 +58,25 @@ shiny_move_trap <- function(trap_selected_date, trap_obs, trap_selected_obs,  tr
 
   incProgress(amount = .75, detail = "Moving files")
 
-  purrr::map2(files_to_move_paths, new_files_names, drop_move)
+  purrr::map2(files_to_move_paths, new_files_names, file.rename)
 
-  new_paths <- drop_dir(new_folder_path) %>%
+  new_paths <- list_files(new_folder_path) %>%
     dplyr::filter(str_detect(name, "Data")) %>%
-    dplyr::pull(path_display)
+    dplyr::pull(path)
 
-  new_obs_files <- bind_rows(map(new_paths, drop_read_csv))
+  new_obs_files <- bind_rows(map(new_paths, read_csv))
 
-  new_obs_grouped <- write_temp_csv(new_obs_files, filename = "grouped.csv")
+  write_csv(new_obs_files, path = paste0(new_folder_path, "/grouped.csv"), append = FALSE)
 
-  drop_upload(new_obs_grouped, format_dropbox_path(new_folder_path))
 
   #regroup current observation after desired files moved out
 
-  existing_files <- drop_dir(trap_selected_obs) %>%
+  existing_files <- list_dir(trap_selected_obs) %>%
     dplyr::filter(str_detect(name, "Data"))
 
-  regroup <- bind_rows(map(existing_files$path_display, drop_read_csv))
+  regroup <- bind_rows(map(existing_files$path, read_csv))
 
-  temp_csv <-  write_temp_csv(regroup, filename = "grouped.csv")
-
-  drop_upload(temp_csv, format_dropbox_path(trap_selected_obs))
-
+  write_csv(regroup, path = paste0(trap_selected_obs, "/grouped.csv"), append = FALSE)
 
   incProgress(1, detail = "Done")
   })
