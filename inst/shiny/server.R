@@ -789,9 +789,9 @@ rv <- reactiveValues()
     })
 
 
-    observe({
-      addResourcePath("user", users_biophysr_folder())
-    })
+   # observe({
+    #  addResourcePath("user", users_biophysr_folder())
+   # })
 
     analysis_report_source <- eventReactive(input$show_quality_check_graph_actionButton, {
 
