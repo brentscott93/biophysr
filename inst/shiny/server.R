@@ -50,11 +50,23 @@ rv <- reactiveValues()
 
 
     users_biophysr_folder <- reactive({
+
+      os <- Sys.info()[["sysname"]]
+
+      if(os == "Darwin"){
       #get path to home, look into Box Sync folder for user
 
       box_sync <- "~/Box Sync/Muscle Biophysics Lab/Data/biophysr/"
       user_path <- paste0(box_sync, current_user())
+      } else {
 
+        root <- "C:/Users/"
+        user <- Sys.info()[["user"]]
+        box_sync <- "/Box Sync/Muscle Biophysics Lab/Data/biophysr/"
+
+        user_path <- paste0(root, user, box_sync, current_user())
+
+      }
       return(user_path)
     })
 
