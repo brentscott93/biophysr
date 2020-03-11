@@ -9,7 +9,7 @@
 #' @export
 #'
 #' @examples
-shiny_hidden_markov_analysis <- function(trap_selected_date, mv2nm, nm2pn, overlay_color, file_type){
+shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, overlay_color, file_type){
 
   withProgress(message = 'HMM Analysis in Progress', value = 0, max = 1, min = 0, {
     incProgress(amount = .01, detail = "Reading Data")
@@ -37,7 +37,8 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, mv2nm, nm2pn, overl
              "detrend" = Detrend,
              "include" = Include) %>%
       mutate(folder = observation_folders,
-             grouped_file = grouped4r_files) %>%
+             grouped_file = grouped4r_files,
+             condition = trap_selected_conditions)%>%
       filter(include == "yes")
 
     } else {
@@ -49,11 +50,8 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, mv2nm, nm2pn, overl
 
     }
 
-    read_directions$baseline_start_sec <- if(read_directions$baseline_start_sec == 0){
-      1/5000
-    } else {
-      read_directions$baseline_start_sec*5000
-    }
+    read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
+
 
     read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
 

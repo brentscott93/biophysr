@@ -452,7 +452,8 @@ rv <- reactiveValues()
 
     observeEvent(rv$update_obs_input, ignoreNULL = TRUE, ignoreInit = TRUE, {
 
-      update_obs <- list_dir(trap_selected_obs()$path)
+      update_obs <- list_dir(trap_selected_date()$path) %>%
+        dplyr::filter(str_detect(name, "obs"))
 
 
       updateSelectizeInput(session, 'trap_obs_selectInput',
@@ -770,7 +771,7 @@ rv <- reactiveValues()
                                                mv2nm = as.numeric(input$mv2nm),
                                                nm2pn = as.numeric(input$nm2pn),
                                                overlay_color = input$trap_color,
-                                               file_type = ipnut$trap_file_type)
+                                               file_type = input$trap_file_type)
     })
 
 
