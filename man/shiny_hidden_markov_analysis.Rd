@@ -6,6 +6,7 @@
 \usage{
 shiny_hidden_markov_analysis(
   trap_selected_date,
+  trap_selected_conditions,
   mv2nm,
   nm2pn,
   overlay_color,
