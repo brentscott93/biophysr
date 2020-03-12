@@ -60,12 +60,17 @@ rv <- reactiveValues()
       user_path <- paste0(box_sync, current_user())
       } else {
 
+        if(length(current_user()) == 0){
         root <- "C:/Users/"
         user <- Sys.info()[["user"]]
-        box_sync <- "/Box Sync/Muscle Biophysics Lab/Data/biophysr/"
-
+        box_sync <- "/Box Sync/Muscle Biophysics Lab/Data/biophysr"
+        user_path <- paste0(root, user, box_sync)
+        } else {
+          root <- "C:/Users/"
+          user <- Sys.info()[["user"]]
+          box_sync <- "/Box Sync/Muscle Biophysics Lab/Data/biophysr/"
         user_path <- paste0(root, user, box_sync, current_user())
-
+          }
       }
       return(user_path)
     })
