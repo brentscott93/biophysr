@@ -543,7 +543,48 @@ body <- dashboardBody(shinyDashboardThemes(
 
                )
         ))
-      )#tab close
+      ),#tab close,
+      tabItem(tabName = "trap_summarize",
+              fluidRow(column(2,
+                              box(width = NULL, title = "Summarize Options",
+                                  radioGroupButtons(
+                                    inputId = "summarize_analyzer",
+                                    label = "Select Analyzer",
+                                    choices = c("Mini" = "mini",
+                                                "HMM" = "hmm"),
+                                    justified = TRUE,
+                                    checkIcon = list(
+                                      yes = tags$i(class = "fa fa-circle",
+                                                   style = "color: green"),
+                                      no = tags$i(class = "fa fa-circle-o",
+                                                  style = "color: black"))
+                                  ),
+                                  prettyRadioButtons(
+                                    inputId = "summarize_file_type",
+                                    label = "Choose File Type",
+                                    choices = c("txt", "csv"),
+                                    icon = icon("check"),
+                                    bigger = TRUE,
+                                    inline = TRUE,
+                                    status = "info",
+                                    animation = "jelly"
+                                  ),
+
+                              actionBttn(inputId = "summarize_trap",
+                                         label = "Summarize",
+                                         icon = icon("calculator"),
+                                         style = "fill",
+                                         color = "warning",
+                                         block = TRUE)
+                              )
+
+                            ),#col
+                       column(10,
+                              box(width = NULL, title = "Summary Table",
+                                  tableOutput("trap_summary")))
+                       )#row
+              )#tab
+
             ) #tabITEMS close
 
 

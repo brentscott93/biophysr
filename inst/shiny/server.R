@@ -892,9 +892,23 @@ rv <- reactiveValues()
 
 
 
+    #------------------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------------------------
+    #start trap summary
+
+    trap_summary_table <- eventReactive(input$summarize_trap, {
+      req(!is.null(trap_selected_project))
+       biophysr::shiny_summarize_trap(trap_selected_project = trap_selected_project(),
+                                     analyzer = input$summarize_analyzer,
+                                     file_type = input$summarize_file_type)
 
 
+    })
 
+
+    output$trap_summary <- renderTable({
+      trap_summary_table()
+    })
 
     #------------------------------------------------------------------------------------------------------------
     #------------------------------------------------------------------------------------------------------------
@@ -908,6 +922,7 @@ rv <- reactiveValues()
     })
 
 
+    #-----------------------
 
 
 } #server close
