@@ -19,11 +19,10 @@ suppressPackageStartupMessages({
   library(clipr)
   library(biophysr)
   library(tidyverse)
-  library(depmixS4)
   library(dashboardthemes)
-  library(rdrop2)
   library(shinydashboard)
   library(shinyjs)
+  library(depmixS4)
 })
 
 header <- dashboardHeader(

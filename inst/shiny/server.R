@@ -440,15 +440,24 @@ rv <- reactiveValues()
     observeEvent(input$confirm_trap_move_sheets_actionButton, {
         removeModal()
         shiny_move_trap(trap_selected_date = trap_selected_date()$path,
-                        trap_obs = trap_obs(),
+                        trap_obs = trap_obs_move(),
                         trap_files = trap_files(),
                         trap_selected_obs = trap_selected_obs()$path,
                         dygraph_clean_date_window_1 = input$dygraph_clean_date_window[[1]],
                         dygraph_clean_date_window_2 = input$dygraph_clean_date_window[[2]])
 
         rv$update_obs_input <- rv$update_obs_input + 1
+        rv$move_trap <- rv$move_trap + 1
     })
 
+    rv$move_trap <- 0
+    trap_obs_move <- eventReactive(rv$move_trap, {
+
+      list_dir(trap_selected_date()$path) %>%
+        dplyr::filter(str_detect(name, "obs_"))
+
+
+    })
 
     observeEvent(rv$update_obs_input, ignoreNULL = TRUE, ignoreInit = TRUE, {
 
@@ -457,7 +466,7 @@ rv <- reactiveValues()
 
 
       updateSelectizeInput(session, 'trap_obs_selectInput',
-                           'Select Obs', choices = c(Choose='', "Create New..." = "create", update_obs$name))
+                          label = NULL, c(Choose='', update_obs$name))
 
     })
 
@@ -470,6 +479,8 @@ rv <- reactiveValues()
           dplyr::pull(path)
 
         gf <- read_csv(grouped_file)
+
+        rv$move_trap <- rv$move_trap + 1
 
         showNotification("Grouped file loaded")
         return(gf)
@@ -694,15 +705,16 @@ rv <- reactiveValues()
     #make new list_directions when button is pressed
     new_directions <-eventReactive(input$trap_new_directions_actionButton, {
 
+
       dir_length <- list_dir(trap_selected_date()$path) %>%
            dplyr::filter(str_detect(name, "obs")) %>%
            nrow()
 
-     d <-  tibble("Observation" = 1:dir_length,
-             "Baseline Start (seconds)" = "",
-             "Baseline Stop (seconds)" = "",
-             "Detrend" = "",
-             "Include" = "")
+     d <-  tibble("observation" = 1:dir_length,
+             "baseline_start_sec" = "",
+             "baseline_stop_sec" = "",
+             "detrend" = "",
+             "include" = "")
 
      return(d)
     })
@@ -718,11 +730,11 @@ rv <- reactiveValues()
     #display directions table
     output$trap_directions <- renderRHandsontable({
         rhandsontable(new_directions(), stretchH = "all") %>%
-            hot_col(col = "Detrend", type = "dropdown", source = c("no", "yes"), render = color_renderer) %>%
-            hot_col(col = "Include", type = "dropdown", source = c("no", "yes"), render = color_renderer) %>%
-            hot_col(col = "Observation", type = "numeric", render = color_renderer) %>%
-            hot_col(col = "Baseline Start (seconds)", type = "numeric",  render = color_renderer) %>%
-            hot_col(col = "Baseline Stop (seconds)", type = "numeric",  render = color_renderer)
+            hot_col(col = "detrend", type = "dropdown", source = c("no", "yes"), render = color_renderer) %>%
+            hot_col(col = "include", type = "dropdown", source = c("no", "yes"), render = color_renderer) %>%
+            hot_col(col = "observation", type = "numeric", render = color_renderer) %>%
+            hot_col(col = "baseline_start_sec", type = "numeric",  render = color_renderer) %>%
+            hot_col(col = "baseline_stop_sec", type = "numeric",  render = color_renderer)
     })
 
     #save directions to 'obs' folder when save button pressed
@@ -769,10 +781,14 @@ rv <- reactiveValues()
         req(!is.null(trap_selected_date()))
         biophysr::shiny_hidden_markov_analysis(trap_selected_date = trap_selected_date()$path,
                                                trap_selected_conditions = trap_selected_conditions()$name,
-                                               mv2nm = as.numeric(input$mv2nm),
-                                               nm2pn = as.numeric(input$nm2pn),
+                                               mv2nm = as.numeric(input$manual_step_cal),
+                                               nm2pn = as.numeric(input$manual_trap_stiffness),
                                                overlay_color = input$trap_color,
                                                file_type = input$trap_file_type)
+        sendSweetAlert(session = session,
+                       title =  "Hidden Markov Analysis Complete",
+                       text = "Results saved to Box",
+                       type = "success")
     })
 
 
@@ -803,9 +819,9 @@ rv <- reactiveValues()
     })
 
 
-   # observe({
-    #  addResourcePath("user", users_biophysr_folder())
-   # })
+    observe({
+      addResourcePath("user", users_biophysr_folder())
+    })
 
     analysis_report_source <- eventReactive(input$show_quality_check_graph_actionButton, {
 
@@ -849,13 +865,20 @@ rv <- reactiveValues()
 
     observeEvent(input$save_updated_directions, {
 
-    updated_directions_temp_path <- write_temp_csv(hot_to_r(input$update_directions()), filename = "directions.csv")
+
 
     old_directions <- list_files(trap_selected_date()$path) %>%
       dplyr::filter(name == "directions.csv")
-    drop_delete(old_directions$path)
 
-    drop_upload(updated_directions_temp_path, paste0(trap_selected_date()$path_diplay))
+    old <- read_csv(old_directions$path)
+
+    new <- hot_to_r(input$update_directions)
+
+    combine <- full_join(old, new)
+
+     updated_directions_temp_path <- write_csv(combine,
+                                               path =  paste0(trap_selected_date()$path, "/directions.csv"), append = FALSE)
+
     showNotification("Directions saved.", type = "message")
 
 

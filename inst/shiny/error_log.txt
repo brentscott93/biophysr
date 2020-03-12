@@ -1,0 +1,4 @@
+Analysis error in obs_01with error: Error in private$value + amount: non-numeric argument to binary operator
+
+Analysis error in obs_01with error: Error in private$value + amount: non-numeric argument to binary operator
+

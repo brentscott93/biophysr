@@ -28,9 +28,3 @@ credentials <- data.frame(
   stringsAsFactors = FALSE
 )
 
-#authorize dropbox
-
-
-drop_auth(rdstoken = "dropbox_token.rds")
-#drop_auth(rdstoken = "inst/shiny/dropbox_token.rds")
-#drop_dir()

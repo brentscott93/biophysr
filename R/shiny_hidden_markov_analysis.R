@@ -31,11 +31,6 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
 
     if(file_type == "csv"){
     read_directions <- suppressMessages(read_csv(directions)) %>%
-      rename("observation" = Observation,
-             "baseline_start_sec" = `Baseline Start (seconds)`,
-             "baseline_stop_sec" = `Baseline Stop (seconds)`,
-             "detrend" = Detrend,
-             "include" = Include) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files,
              condition = trap_selected_conditions)%>%
@@ -62,13 +57,13 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
     dir.create(events_folder)
     plots_folder <- paste0(trap_selected_date, "/results/plots")
     dir.create(plots_folder)
-    model_folder <- paste0(trap_selected_date, "/results/model")
+    model_folder <- paste0(trap_selected_date, "/results/model_summary")
     dir.create(model_folder)
 
-hmm_initial_parameters <- c(0.98, 0.01, 0.01,        #Initial state probabilities
-                            0.98, 0.01, 0.01,        #transition probs s1 to s1/s2. These are guesses knowing they are stable states
-                            0.01, 0.98, 0.01,        #transition probs s2 to s1/s2. Again a guess
-                            0.01, 0.01, 0.98)       #transition probs s3 to s1/s2. Again a guess
+hmm_initial_parameters <- c(0.98, 0.02,        #Initial state probabilities
+                            0.98, 0.02,         #transition probs s1 to s1/s2. These are guesses knowing they are stable states
+                            0.02, 0.98)       #transition probs s2 to s1/s2. Again a guess
+                            #transition probs s3 to s1/s2. Again a guess
 
 
 
@@ -114,24 +109,24 @@ for(folder in seq_along(read_directions$folder)){
 
    processed_data <- if(read_directions$detrend[[folder]] == "yes"){
 
-     break_pts <- seq(25000, length(dat), by = 25000)
+      break_pts <- seq(25000, length(dat), by = 25000)
 
-     pracma::detrend(dat, tt = "linear", bp = break_pts)
+      pracma::detrend(dat, tt = "linear", bp = break_pts)
 
    } else if(read_directions$detrend[[folder]] == "no"){
 
-     get_mean <- mean(dat[read_directions$baseline_start_sec[[folder]] : read_directions$baseline_stop_sec[[folder]]])
-     dat - get_mean
+      get_mean <- mean(dat[read_directions$baseline_start_sec[[folder]] : read_directions$baseline_stop_sec[[folder]]])
+      dat - get_mean
 
    }
 
    ## RUNNING MEAN & VAR ##
 
-   writeLines("Calculating Running Mean")
+   incProgress(detail = "Calculating Running Mean")
    run_mean <- running(processed_data, fun = mean, width = 150, by = 75)
 
 
-   writeLines("Calculating Running Variance")
+   incProgress(detail = "Calculating Running Variance")
    run_var <- running(processed_data, fun = var, width = 150, by = 75)
 
 
@@ -144,7 +139,7 @@ for(folder in seq_along(read_directions$folder)){
 
    seed <- floor(runif(1, 0, 1e6))
 
-   hmm <- depmix(list(run_var~1,
+   hmm <- depmixS4::depmix(list(run_var~1,
                       run_mean~1),
                  data = running_table,
                  nstates = 2,
@@ -170,9 +165,9 @@ for(folder in seq_along(read_directions$folder)){
 
    set.seed(seed)
 
-   hmm_fit <- fit(hmm, emcontrol = em.control(random.start = FALSE))
+   hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = FALSE))
 
-   hmm_posterior <- posterior(hmm_fit)
+   hmm_posterior <- depmixS4::posterior(hmm_fit)
 
    #make sure HMM starts in state 2 this will reset seed and try to refit 10 times
    #should really never have to do this with the em.control set
@@ -181,32 +176,36 @@ for(folder in seq_along(read_directions$folder)){
 
    while(hmm_repeat < 10){
 
-     if(hmm_posterior$state[[1]] == 1){
-       writeLines("HMM starts in state 1")
-       hmm_repeat <- 11
+      if(hmm_posterior$state[[1]] == 1){
+         writeLines("HMM starts in state 1")
+         hmm_repeat <- 11
 
-     } else if(hmm_posterior$state[[1]] == 2){
-       writeLines(paste("Refitting HMM", hmm_repeat))
+      } else if(hmm_posterior$state[[1]] == 2){
+         writeLines(paste("Refitting HMM", hmm_repeat))
 
-       seed <- floor(runif(1, 0, 1e6))
+         seed <- floor(runif(1, 0, 1e6))
 
-       set.seed(seed)
+         set.seed(seed)
 
-       hmm_fit <- fit(hmm, emcontrol = em.control(random.start = FALSE))
+         hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = FALSE))
 
-       hmm_posterior <- posterior(hmm_fit)
+         hmm_posterior <- depmixS4::posterior(hmm_fit)
 
-       hmm_repeat <- hmm_repeat + 1
-     }
+         hmm_repeat <- hmm_repeat + 1
+      }
    }
 
    report[[folder]] <- paste0("error-HMM_starts_in_state_2!_", read_directions$folder[[folder]])
 
    if(hmm_posterior$state[[1]] == 2){
-     writeLines(c("Skipping",
-                  read_directions$folder[[folder]],
-                  "HMM starts in State 2."), error_file);
-     next
+      writeLines(c("Skipping",
+                   read_directions$folder[[folder]],
+                   "HMM starts in State 2."), error_file);
+      next
+   } else {
+
+      incProgress(detail = "Continuing On!")
+
    }
 
 
@@ -220,15 +219,15 @@ for(folder in seq_along(read_directions$folder)){
                            "model.txt"),
                     open =  "a")
 
-   capture.output(summary(hmm_fit), file = hmm_file)
+   capture.output(depmixS4::summary(hmm_fit), file = hmm_file)
    close(hmm_file)
 
 
-   sum_fit <- summary(hmm_fit)
+   sum_fit <- depmixS4::summary(hmm_fit)
    base_var <- sum_fit[[1]]
    event_var <- sum_fit[[2]]
 
-   var_signal_to_noise[[folder]] <-base_var/event_var
+   var_signal_to_noise[[folder]] <- base_var/event_var
    var_signal_to_noise_directions[[folder]] <- paste0(read_directions$folder[[folder]], "!_", base_var/event_var)
 
    ## Calculate conversion between window length and data points
@@ -236,7 +235,7 @@ for(folder in seq_along(read_directions$folder)){
 
    #old/not necessary
    ## COUNT EVENTS ##
-   writeLines("Measuring Events")
+   incProgress(detail = "Measuring Events")
 
    counter <- matrix(table(paste0(head(hmm_posterior$state,-1),tail(hmm_posterior$state,-1))), nrow = 1)
 
@@ -245,7 +244,7 @@ for(folder in seq_along(read_directions$folder)){
                              c("1-1", "1-2", "2-1", "2-2"))
 
    count_events <- as.data.frame(counter, row.names = "#_transitions", make.names = TRUE) %>%
-     mutate(condition = paste0( read_directions$condition[[folder]]))
+      mutate(condition = paste0( read_directions$condition[[folder]]))
 
 
 
@@ -265,7 +264,7 @@ for(folder in seq_along(read_directions$folder)){
 
    #convert running mean object to tibble
    run_mean_tibble <- tibble::enframe(run_mean) %>%
-     mutate(index = time(run_mean))
+      mutate(index = time(run_mean))
 
    #finds lengths of events in number of running windows
    run_length_encoding <- rle(hmm_posterior$state)
@@ -275,54 +274,54 @@ for(folder in seq_along(read_directions$folder)){
 
    #make a copy of data for time on analysis
    rle_object_4_duration <- rle_object %>%
-     dplyr::filter(values == 2)
+      dplyr::filter(values == 2)
 
 
    if(hmm_posterior$state[[length(hmm_posterior$state)]] == 2){
-     #make a copy of data for time off analysis
-     time_offs <- rle_object %>%
-       dplyr::filter(values == 1) %>%
-       tail(-1) %>% #this gets rid of the first state 1 when that begins with the start of the trace recording
-       # head(-1) %>% #this gets rid of the last state 1 that only ends because we stopped collecting
-       mutate(off_length_5kHz = lengths*conversion,
-              time_off_ms = (off_length_5kHz/5000)*1000)
+      #make a copy of data for time off analysis
+      time_offs <- rle_object %>%
+         dplyr::filter(values == 1) %>%
+         tail(-1) %>% #this gets rid of the first state 1 when that begins with the start of the trace recording
+         # head(-1) %>% #this gets rid of the last state 1 that only ends because we stopped collecting
+         mutate(off_length_5kHz = lengths*conversion,
+                time_off_ms = (off_length_5kHz/5000)*1000)
    } else {
-     #make a copy of data for time off analysis
-     time_offs <- rle_object %>%
-       dplyr::filter(values == 1) %>%
-       tail(-1) %>% #this gets rid of the first state 1 when that begins with the start of the trace recording
-       head(-1) %>% #this gets rid of the last state 1 that only ends because we stopped collecting
-       mutate(off_length_5kHz = lengths*conversion,
-              time_off_ms = (off_length_5kHz/5000)*1000)
+      #make a copy of data for time off analysis
+      time_offs <- rle_object %>%
+         dplyr::filter(values == 1) %>%
+         tail(-1) %>% #this gets rid of the first state 1 when that begins with the start of the trace recording
+         head(-1) %>% #this gets rid of the last state 1 that only ends because we stopped collecting
+         mutate(off_length_5kHz = lengths*conversion,
+                time_off_ms = (off_length_5kHz/5000)*1000)
    }
 
 
    #calculates the events durations
    on_off_times <- rle_object_4_duration %>%
-     dplyr::mutate(n_event = 1:nrow(rle_object_4_duration),
-                   length_5kHz = lengths*conversion,
-                   time_on_ms = (length_5kHz/5000)*1000,
-                   time_off_ms = c(NA, time_offs$time_off_ms)) %>%
-     dplyr::select(n_event,values, everything()) %>%
-     dplyr::rename("num_windows" = lengths,
-                   "hmm_state" = values)
+      dplyr::mutate(n_event = 1:nrow(rle_object_4_duration),
+                    length_5kHz = lengths*conversion,
+                    time_on_ms = (length_5kHz/5000)*1000,
+                    time_off_ms = c(NA, time_offs$time_off_ms)) %>%
+      dplyr::select(n_event,values, everything()) %>%
+      dplyr::rename("num_windows" = lengths,
+                    "hmm_state" = values)
 
 
    #calculate event displacement
 
    #If the rle_object's last row is in state 1, get rid of that last row. This needs to end in state 2 to capture the end of the last event
    rle_object_4_step_sizes <- if(tail(rle_object, 1)$values == 1){
-     slice(rle_object, -length(rle_object$values))
+      slice(rle_object, -length(rle_object$values))
    } else {
-     rle_object
+      rle_object
    }
    #Calculate the cumulative sum of the run length encoder
    #And splits the tibble into two seperate tables to isolate state 1 info from state 2
 
    split_data <- rle_object_4_step_sizes %>%
-     dplyr::mutate(cumsum = cumsum(lengths)) %>%
-     dplyr::group_by(values) %>%
-     split(rle_object_4_step_sizes$values)
+      dplyr::mutate(cumsum = cumsum(lengths)) %>%
+      dplyr::group_by(values) %>%
+      split(rle_object_4_step_sizes$values)
 
    #data is recmombined in a state_1 column and a state_2
    #the values in these columns represent the last data point (in window lengths) in either state 1 or state 2
@@ -334,10 +333,10 @@ for(folder in seq_along(read_directions$folder)){
    peak_nm_index <- vector()
    for(i in 1:nrow(regroup_data)){
 
-     win_values_t <- run_mean_tibble[(regroup_data$state_1_end[i]+1) : (regroup_data$state_2_end[i]),]
-     max_step_index <- win_values_t$index[which.max(abs(win_values_t$value))]
-     peak_nm_index[i] <- max_step_index
-     step_sizes[[i]] <-  win_values_t$value[which(win_values_t$index == max_step_index)]
+      win_values_t <- run_mean_tibble[(regroup_data$state_1_end[i]+1) : (regroup_data$state_2_end[i]),]
+      max_step_index <- win_values_t$index[which.max(abs(win_values_t$value))]
+      peak_nm_index[i] <- max_step_index
+      step_sizes[[i]] <-  win_values_t$value[which(win_values_t$index == max_step_index)]
 
 
    }
@@ -357,9 +356,9 @@ for(folder in seq_along(read_directions$folder)){
    state_1_avg <- vector("list", length = nrow(regroup_data)) #allocate space for output storage of loop
    state_1_avg[[1]] <- mean(run_mean_tibble$value[1:regroup_data$state_1_end[1]]) #get everage of first state 1
    if(nrow(s1_regroup_data) > 1){
-     for(i in seq_along(1:nrow(s1_regroup_data))){
-       state_1_avg[[i+1]] <- mean(run_mean_tibble$value[(s1_regroup_data$state_2_end[i]+1) : (s1_regroup_data$state_1_end[i])])
-     }
+      for(i in seq_along(1:nrow(s1_regroup_data))){
+         state_1_avg[[i+1]] <- mean(run_mean_tibble$value[(s1_regroup_data$state_2_end[i]+1) : (s1_regroup_data$state_1_end[i])])
+      }
    }
 
    calculate_mean_differences <- tibble(avg_s1 = unlist(state_1_avg),
@@ -373,41 +372,41 @@ for(folder in seq_along(read_directions$folder)){
    #if there are more negative step sizes than positive, actin filament assumed backward and all events flipped (multipled by -1)
    #also raw trace, state 1 averages, and step sizes flipped for hmm overlay
    direction_correction <- if(negative_events > positive_events){
-     calculate_mean_differences$diff * -1
+      calculate_mean_differences$diff * -1
    } else {
-     calculate_mean_differences$diff
+      calculate_mean_differences$diff
    }
 
 
    flip_raw <- if(negative_events > positive_events){
-     processed_data * -1
+      processed_data * -1
    } else {
-     processed_data
+      processed_data
    }
 
    flip_state_1_avg <- if(negative_events > positive_events){
-     unlist(state_1_avg) * -1
+      unlist(state_1_avg) * -1
    } else {
-     unlist(state_1_avg)
+      unlist(state_1_avg)
    }
 
    flip_step_sizes <- if(negative_events > positive_events){
-     unlist(step_sizes) * -1
+      unlist(step_sizes) * -1
    } else {
-     unlist(step_sizes)
+      unlist(step_sizes)
    }
 
 
    #add step sizes and forces to the on_off_times table
    measured_events <- on_off_times %>%
-     dplyr::mutate(displacement_nm = direction_correction,
-                   condition = paste0(read_directions$condition[[folder]]),
-                   force = displacement_nm*nm2pn) %>%
-     dplyr::select(condition, time_on_ms, time_off_ms, displacement_nm, force)
+      dplyr::mutate(displacement_nm = direction_correction,
+                    condition = paste0(read_directions$condition[[folder]]),
+                    force = displacement_nm*nm2pn) %>%
+      dplyr::select(condition, time_on_ms, time_off_ms, displacement_nm, force)
 
 
    ## SAVE OUTPUT ##
-   writeLines("Saving Events")
+   incProgress(detail = "Saving Events")
    measured_events_path <-  paste0(trap_selected_date,
                                    "/results/events/",
                                    read_directions$condition[[folder]],
@@ -432,26 +431,26 @@ for(folder in seq_along(read_directions$folder)){
 
 
    hmm_overlay <- bind_rows(s1_avg_4plot, s2_avg_4plot) %>%
-     arrange(state_order)
+      arrange(state_order)
 
 
 
 
    if(hmm_posterior$state[[length(hmm_posterior$state)]] == 2){
 
-     overlay <- vector("list")
-     for(i in seq_along(1:(nrow(hmm_overlay)-1))){
+      overlay <- vector("list")
+      for(i in seq_along(1:(nrow(hmm_overlay)-1))){
 
-       overlay[[i]] <- rep(hmm_overlay$avg[i],
-                           (round(conversion)*rle_object$lengths[-length(rle_object$lengths)][i]))
-     }
+         overlay[[i]] <- rep(hmm_overlay$avg[i],
+                             (round(conversion)*rle_object$lengths[-length(rle_object$lengths)][i]))
+      }
    } else {
 
-     overlay <- vector("list")
-     for(i in seq_along(1:nrow(hmm_overlay))){
-       overlay[[i]] <- rep(hmm_overlay$avg[i],
-                           (round(conversion)*rle_object$lengths[-length(rle_object$lengths)][i]))
-     }
+      overlay <- vector("list")
+      for(i in seq_along(1:nrow(hmm_overlay))){
+         overlay[[i]] <- rep(hmm_overlay$avg[i],
+                             (round(conversion)*rle_object$lengths[-length(rle_object$lengths)][i]))
+      }
    }
 
    overlay <- unlist(overlay)
@@ -473,11 +472,11 @@ for(folder in seq_along(read_directions$folder)){
                                final_events = measured_events,
                                count_events = count_events,
                                periods = regroup_data %>%
-                                 mutate(state_2_start = state_1_end * conversion,
-                                        state_2_stop = state_2_end * conversion,
-                                        run_from = state_1_end,
-                                        run_to = state_2_end) %>%
-                                 dplyr::select(state_2_start, state_2_stop, run_from, run_to),
+                                  mutate(state_2_start = state_1_end * conversion,
+                                         state_2_stop = state_2_end * conversion,
+                                         run_from = state_1_end,
+                                         run_to = state_2_end) %>%
+                                  dplyr::select(state_2_start, state_2_stop, run_from, run_to),
                                peak_nm_index = peak_nm_index * conversion,
                                rdata_temp_file = rdata_temp_file,
                                hmm_identified_events = hmm_identified_events,
@@ -490,16 +489,16 @@ for(folder in seq_along(read_directions$folder)){
 
    #make dygraph .R file
    writeLines(c(
-     "#+ echo=FALSE",
-     "suppressPackageStartupMessages(library(tidyverse))
+      "#+ echo=FALSE",
+      "suppressPackageStartupMessages(library(tidyverse))
    suppressPackageStartupMessages(library(dygraphs))
    suppressPackageStartupMessages(library(rmarkdown))
    suppressPackageStartupMessages(library(RColorBrewer))
    suppressPackageStartupMessages(library(gridExtra))
   ",
-     paste0("rdata_temp_file <- ","'", rdata_temp_file, "'"),
-     paste0("run_mean_color <- ", "'",overlay_color, "'"),
-     "
+      paste0("rdata_temp_file <- ","'", rdata_temp_file, "'"),
+      paste0("run_mean_color <- ", "'",overlay_color, "'"),
+      "
    #+ echo=FALSE, message = FALSE, fig.width = 10, fig.height = 2
 
   load(rdata_temp_file)
@@ -631,12 +630,12 @@ grid.arrange(mv1, mv2, nrow = 1)
 
 
   "),
-     paste0("~/Desktop",
-            "/",
-            read_directions$condition[[folder]],
-            "_",
-            read_directions$folder[[folder]],
-            "_dygraph.R")
+      paste0(temp_dir,
+             "/",
+             read_directions$condition[[folder]],
+             "_",
+             read_directions$folder[[folder]],
+             "_dygraph.R")
 
    )
 
@@ -644,7 +643,7 @@ grid.arrange(mv1, mv2, nrow = 1)
 
 
 
-   writeLines("Render to HTML")
+   incProgress(detail = "Render to HTML")
 
    #render to HTML
    report[[folder]] <- paste0("failed_to_render_dygraph!_", read_directions$folder[[folder]])
@@ -676,6 +675,8 @@ grid.arrange(mv1, mv2, nrow = 1)
 
 
 
+
+
   }, error=function(e){
     writeLines(paste0("Analysis error in ",
                       read_directions$folder[[folder]],
@@ -689,10 +690,10 @@ grid.arrange(mv1, mv2, nrow = 1)
 close(error_file)
 
 signal <- tibble(sig = unlist(var_signal_to_noise_directions)) %>%
-  separate(sig, c("folder", "signal"), sep = "!_")
+   separate(sig, c("folder", "signal"), sep = "!_")
 
 export_directions <- read_csv(directions) %>%
-  dplyr::select(observation, baseline_start_sec, baseline_start_sec, detrend, include) %>%
+  dplyr::select(observation, baseline_start_sec, baseline_stop_sec, detrend, include) %>%
   mutate(folder = observation_folders,
          grouped_file = grouped4r_files) %>%
   left_join(signal)
@@ -724,10 +725,7 @@ incProgress(1, detail = "Done!")
 
   }) #close withProgress
 
-  sendSweetAlert(session = session,
-                 title =  "Hidden Markov Analysis Complete",
-                 text = "Results saved to Box",
-                 type = "success")
+
 }
 
 
