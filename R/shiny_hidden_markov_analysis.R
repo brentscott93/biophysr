@@ -45,9 +45,10 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
 
     }
 
+    read_directions$baseline_start_sec <- as.numeric(read_directions$baseline_start_sec)
     read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
 
-
+    read_directions$baseline_stop_sec <- as.numeric(read_directions$baseline_stop_sec)
     read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
 
     #create results folders for output on dropbox
