@@ -63,15 +63,15 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
     str_trap <- function(x){
       substring <- str_sub(x, c(6, 11, 14, 17, 20, 23), c(9, 12, 15, 18, 21, 24))
 
-      substring[[6]] <- round(as.numeric(substring[[6]])/60, digits = 2)
+     # substring[[6]] <- round(as.numeric(substring[[6]])/60, digits = 2)
 
-      if(as.numeric(substring[[6]]) == "0"){
-        substring[[6]] <- ".00"
-      } else {
-        find_decimal <- unname(str_locate(substring[[6]], "[.]")[,1])
+    #  if(as.numeric(substring[[6]]) == "0"){
+    #    substring[[6]] <- ".00"
+    #  } else {
+    #    find_decimal <- unname(str_locate(substring[[6]], "[.]")[,1])
 
-        substring[[6]] <- str_sub(substring[[6]], start = find_decimal, end = str_length(substring[[6]]))
-      }
+    #    substring[[6]] <- str_sub(substring[[6]], start = find_decimal, end = str_length(substring[[6]]))
+   #   }
 
       final_string <- as.numeric(str_c(substring, collapse = ""))
 
@@ -80,23 +80,41 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
     }
 
 
-    cutoff <- as.numeric(threshold)/60
+    #cutoff <- as.numeric(threshold)/60
+
     extract_numbers <- purrr::map(file_tibble$name, str_trap)
+    datetime <- purrr::map(extract_numbers, lubridate::ymd_hms, tz = "EST")
+
+
+
+
     dif2 <- vector("list") #for troubleshooting
     diff_vector <- vector()
-    for(i in seq_along(extract_numbers[-length(extract_numbers)])){
-      dif <- extract_numbers[[i+1]] - extract_numbers[[i]]
-      dif2[[i]] <- extract_numbers[[i+1]] - extract_numbers[[i]] #for troubleshooting
+    for(i in seq_along(datetime[-length(datetime)])){
 
-      if(dif > cutoff){
+      dif <- as.double(difftime(datetime[[i+1]], datetime[[i]]))
+
+      if(dif > threshold){
         diff_vector[[i]] <- "end_observation"
       } else {
         diff_vector[[i]] <- "observing"
       }
     }
 
-    diff_vector[[length(extract_numbers)]] <- "end_observation"
+    #dif2 <- vector("list") #for troubleshooting
+   # diff_vector <- vector()
+   # for(i in seq_along(extract_numbers[-length(extract_numbers)])){
+   #   dif <- extract_numbers[[i+1]] - extract_numbers[[i]]
+   #   dif2[[i]] <- extract_numbers[[i+1]] - extract_numbers[[i]] #for troubleshooting
 
+   #   if(dif > cutoff){
+    #    diff_vector[[i]] <- "end_observation"
+    #  } else {
+    #    diff_vector[[i]] <- "observing"
+    #  }
+   # }
+
+    diff_vector[[length(datetime)]] <- "end_observation"
 
 
     diff_tibble2 <- tibble(index = 1:length(diff_vector),

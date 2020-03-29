@@ -42,7 +42,7 @@ read_exported_directions <- suppressMessages(bind_rows(lapply(directions, read_c
   filter(report == "success") %>%
   mutate(event_paths = event_paths) %>%
  # rename("quality_control" = `Quality Control`) %>%
-  filter(quality_control == "yes")
+  filter(quality_control == TRUE)
 
 
 all_hmm_events <- suppressMessages(map(read_exported_directions$event_paths, read_csv, col_names = TRUE))
@@ -59,6 +59,8 @@ event_files_filtered <- bind_rows(all_hmm_events) %>%
   rename(conditions = 'read_exported_directions$condition[[s]]') #%>%
  # separate(conditions, c("myo", "ph", "phosphate"), sep = "_")
 
+dir.create(paste0(trap_selected_project$path, "/summary"))
+write_csv(event_files_filtered, paste0(trap_selected_project$path, "/summary/all_hmm_events.csv"))
 
 #####summarise
 
@@ -124,8 +126,6 @@ summarize_trap <- event_files_filtered %>%
 setProgress(value = 0.9, detail = "Writing Data")
 project_name <- trap_selected_project$name
 
-
-dir.create(paste0(trap_selected_project$path, "/summary"))
 
 write_csv(summarize_trap, paste0(trap_selected_project$path,
                                  "/summary/",
