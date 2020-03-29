@@ -92,7 +92,7 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
     diff_vector <- vector()
     for(i in seq_along(datetime[-length(datetime)])){
 
-      dif <- as.double(difftime(datetime[[i+1]], datetime[[i]]))
+      dif <- as.double(difftime(datetime[[i+1]], datetime[[i]], units = "secs"))
 
       if(dif > threshold){
         diff_vector[[i]] <- "end_observation"
