@@ -410,20 +410,25 @@ for(folder in seq_along(read_directions$folder)){
 
 
    #find better time on
+
    forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1)*conversion),
                               s2_end = ceiling(regroup_data$state_2_end*conversion))
 
    backwards_data <- tibble(s1_end = floor(regroup_data$state_1_end*conversion),
                           s2_end = ceiling((regroup_data$state_2_end + 1)*conversion))
 
+  # flip_raw_run_mean <- rollmean(as.vector(flip_raw), k = 50, align = "left")
    processed_data_tibble <- tibble(data = as.vector(flip_raw),
                                    index = seq(1, length(flip_raw), length.out = length(flip_raw)))
+
+   did_it_flip <- negative_events > positive_events
 
    is_positive <- calculate_mean_differences$diff > 0
 
    ensemble_length <- 1000 #200ms, 0.2 seconds
    better_time_on_starts <- vector()
    forward_ensemble_average_data <- vector("list")
+   ensemble_keep1 <- vector()
    for(c in 1:nrow(forward_data)){
 
     if(is_positive[[c]] == TRUE){
@@ -433,14 +438,27 @@ for(folder in seq_along(read_directions$folder)){
       forward_chunk$data <- forward_chunk$data * -1
     }
 
-     forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
+      chunk_length <- nrow(forward_chunk)
+      forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
+      forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
 
      if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
+        if(is_positive[[c]] == TRUE){
 
        forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - w_width): forward_data$s2_end[[c]],]
+       chunk_length <- nrow(forward_chunk)
+       forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
        forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
        event_on <- cpts(forward_cpt_obj)
 
+        } else {
+        forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - w_width): forward_data$s2_end[[c]],]
+        forward_chunk$data <- forward_chunk$data * -1
+        chunk_length <- nrow(forward_chunk)
+        forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
+        forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
+        event_on <- cpts(forward_cpt_obj)
+        }
 
      } else {
 
@@ -448,7 +466,19 @@ for(folder in seq_along(read_directions$folder)){
 
      }
 
+     if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
+
+        better_time_on_starts[[c]] <- NA
+        ensemble_keep1[[c]] <- FALSE
+
+        next
+
+     } else {
+
        better_time_on_starts[[c]] <- forward_chunk$index[event_on]
+       ensemble_keep1[[c]] <- TRUE
+
+     }
 
        start_ensemble <- 1 - event_on
        forward_chunk <- forward_chunk %>%
@@ -486,11 +516,11 @@ for(folder in seq_along(read_directions$folder)){
 
 
    ####backwards ensemble
-
    better_time_on_stops <- vector()
    backwards_ensemble_average_data <- vector("list")
+   ensemble_keep2 <- vector()
    for(c in 1:nrow(backwards_data)){
-
+     # print(c)
     if(is_positive[[c]] == TRUE){
      backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
     } else {
@@ -498,13 +528,28 @@ for(folder in seq_along(read_directions$folder)){
      backwards_chunk$data <- backwards_chunk$data * -1
     }
 
+     bward_chunk_length <- nrow(backwards_chunk)
+     backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
      backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
 
      if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
+        if(is_positive[[c]] == TRUE){
 
          backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + w_width),]
+         bward_chunk_length <- nrow(backwards_chunk)
+         backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
          backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
          event_off <- cpts(backwards_cpt_obj)
+
+        } else {
+           backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + w_width),]
+           backwards_chunk$data <- backwards_chunk$data * -1
+           bward_chunk_length <- nrow(backwards_chunk)
+           backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
+           backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
+           event_off <- cpts(backwards_cpt_obj)
+
+        }
 
      } else {
 
@@ -512,7 +557,18 @@ for(folder in seq_along(read_directions$folder)){
 
      }
 
+     if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
+        better_time_on_stops[[c]] <- NA
+        ensemble_keep2[[c]] <- FALSE
+
+      next
+
+     } else {
+
      better_time_on_stops[[c]] <- backwards_chunk$index[event_off]
+     ensemble_keep2[[c]] <- TRUE
+
+     }
 
      start_backward_ensemble <- 1 - event_off
      backwards_chunk <- backwards_chunk %>%
@@ -550,12 +606,25 @@ for(folder in seq_along(read_directions$folder)){
    }
 
    better_time_on <- tibble(start = better_time_on_starts,
-                            stop = better_time_on_stops) %>%
+                            stop = better_time_on_stops,
+                            keep1 = ensemble_keep1,
+                            keep2 = ensemble_keep2,
+                            n_event = 1:length(start)) %>%
      mutate(better_time_on_dp = stop - start,
-            better_time_on_ms = (better_time_on_dp/5000)*1000,
-            n_event = 1:length(start))
+            better_time_on_ms = (better_time_on_dp/5000)*1000)
 
 
+
+   dygraph_periods <- cbind(better_time_on, regroup_data) %>%
+      mutate(state_2_start = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
+                      state_1_end,
+                      start),
+             state_2_stop = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
+                            state_2_end,
+                            stop)) %>%
+      rename("run_from" = state_1_end,
+             "run_to" = state_2_end) %>%
+      dplyr::select(state_2_start, state_2_stop, run_from, run_to)
 
 
    #######better step sizes###########
@@ -570,12 +639,12 @@ for(folder in seq_along(read_directions$folder)){
   # }
 
    ###add better on times to final table
-   measured_events <- measured_events %>%
-     full_join(better_time_on) %>%
-   dplyr::select(condition, time_off_ms, better_time_on_ms,  displacement_nm, force) %>%
-     rename("time_on_ms" = better_time_on_ms)
-
-
+   measured_events <- full_join(measured_events, better_time_on) %>%
+      mutate(final_time_ons_ms = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
+                                        time_on_ms,
+                                        better_time_on_ms)) %>%
+      dplyr::select(condition, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
+      rename("time_on_ms" = final_time_ons_ms)
 
 
    ## SAVE OUTPUT ##
@@ -667,10 +736,7 @@ for(folder in seq_along(read_directions$folder)){
                                run_mean = overlay,
                                final_events = measured_events,
                                count_events = count_events,
-                               periods = tibble(state_2_start = better_time_on$start,
-                                         state_2_stop = better_time_on$stop,
-                                         run_from = regroup_data$state_1_end,
-                                         run_to = regroup_data$state_2_end),
+                               periods = dygraph_periods,
                                peak_nm_index = peak_nm_index * conversion,
                                rdata_temp_file = rdata_temp_file,
                                hmm_identified_events = hmm_identified_events,
