@@ -22,6 +22,7 @@ suppressPackageStartupMessages({
   library(dashboardthemes)
   library(shinydashboard)
   library(shinyjs)
+  library(changepoint)
   library(depmixS4)
 })
 
@@ -198,7 +199,7 @@ body <- dashboardBody(shinyDashboardThemes(
 
 
 
-                           jqui_resizable(plotOutput("step_cal_plot")) %>% withSpinner(type = 6, color = "#373B38")
+                           jqui_resizable(plotOutput("step_cal_plot")) %>% withSpinner(type = 8, color = "#35ED35")
 
                        ) #box close
                        ), #col close
@@ -349,7 +350,7 @@ body <- dashboardBody(shinyDashboardThemes(
                               br(),
                               br(),
                               br(),
-                              dygraphOutput("dygraph_clean") %>% withSpinner(type = 6, color = "#373B38"),
+                              dygraphOutput("dygraph_clean") %>% withSpinner(type = 8, color = "#373B38"),
                               br(),
                               br(),
                               br(),
@@ -463,8 +464,12 @@ body <- dashboardBody(shinyDashboardThemes(
                   ),
 
 
+
+
                    textInput("manual_step_cal", "Step Calibration (nm/mV)", value = NULL, placeholder = NULL),
                     textInput("manual_trap_stiffness", "Trap Stiffness (pN/nm)", value = NULL, placeholder = NULL),
+
+
 
                   prettyRadioButtons(
                     inputId = "trap_file_type",
@@ -475,6 +480,16 @@ body <- dashboardBody(shinyDashboardThemes(
                     inline = TRUE,
                     status = "info",
                     animation = "jelly"
+                  ),
+
+                  switchInput(
+                    inputId = "emcontrol",
+                    label = "EM Random Start",
+                    onLabel = "Yes",
+                    offLabel = "No",
+                    onStatus = "success",
+                    offStatus = "danger",
+                    width = "100%"
                   ),
 
 
@@ -536,7 +551,7 @@ body <- dashboardBody(shinyDashboardThemes(
 
                  br(),
                  br(),
-                 htmlOutput("analysis_report") %>% withSpinner(type = 6, color = "#373B38"),
+                 htmlOutput("analysis_report") %>% withSpinner(type = 8, color = "#373B38"),
                  br(),
                  br()
 

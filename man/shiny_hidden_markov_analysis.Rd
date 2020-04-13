@@ -10,7 +10,8 @@ shiny_hidden_markov_analysis(
   mv2nm,
   nm2pn,
   overlay_color,
-  file_type
+  file_type,
+  hm_emcontrol
 )
 }
 \arguments{

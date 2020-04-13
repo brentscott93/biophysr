@@ -508,12 +508,16 @@ rv <- reactiveValues()
 
 
 
+
     #dygraph clean and shave
     dygraph_clean <- eventReactive(input$trap_clean_show_graph_actionButton,{
-
-
-      data1 <- tibble(seconds = 1:nrow(trap_grouped_file())/5000,
+      shinyjs::disable("trap_filter_sliderInput")
+      #old name 'data1'
+      data <- tibble(seconds = 1:nrow(trap_grouped_file())/5000,
                      bead = trap_grouped_file()$bead)
+
+
+
 
 
      trap_filter1 <-  if(input$trap_filter_sliderInput[[1]] == 0){
@@ -524,7 +528,7 @@ rv <- reactiveValues()
 
      trap_filter2 <-  input$trap_filter_sliderInput[[2]]*5000
 
-    data <- data1[c(trap_filter1:trap_filter2),]
+    #data <- data1[c(trap_filter1:trap_filter2),]
 
 
         number_files <- nrow(data)/25000
@@ -789,7 +793,8 @@ rv <- reactiveValues()
                                                mv2nm = as.numeric(input$manual_step_cal),
                                                nm2pn = as.numeric(input$manual_trap_stiffness),
                                                overlay_color = input$trap_color,
-                                               file_type = input$trap_file_type)
+                                               file_type = input$trap_file_type,
+                                               hm_emcontrol = input$emcontrol)
         sendSweetAlert(session = session,
                        title =  "Hidden Markov Analysis Complete",
                        text = "Results saved to Box",

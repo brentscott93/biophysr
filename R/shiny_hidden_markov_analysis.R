@@ -9,14 +9,12 @@
 #' @export
 #'
 #' @examples
-shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, overlay_color, file_type){
+shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, overlay_color, file_type, hm_emcontrol){
 
   withProgress(message = 'HMM Analysis in Progress', value = 0, max = 1, min = 0, {
     incProgress(amount = .01, detail = "Reading Data")
 
-
-
-    observation_folders <- list_dir(trap_selected_date) %>%
+     observation_folders <- list_dir(trap_selected_date) %>%
       dplyr::filter(str_detect(name, "obs")) %>%
       pull(name)
 
@@ -60,6 +58,9 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
     dir.create(plots_folder)
     model_folder <- paste0(trap_selected_date, "/results/model_summary")
     dir.create(model_folder)
+    ensemble_folder <- paste0(trap_selected_date, "/results/ensemble")
+    dir.create(ensemble_folder)
+
 
 hmm_initial_parameters <- c(0.98, 0.02,        #Initial state probabilities
                             0.98, 0.02,         #transition probs s1 to s1/s2. These are guesses knowing they are stable states
@@ -85,7 +86,7 @@ for(folder in seq_along(read_directions$folder)){
 
     report[[folder]] <- paste0("failed_to_initialize!_", read_directions$folder[[folder]])
 
-   dat <-  if(file_type == "txt"){
+    dat <-  if(file_type == "txt"){
 
     #Load data and convert mV to nm
 
@@ -112,7 +113,7 @@ for(folder in seq_along(read_directions$folder)){
 
       break_pts <- seq(25000, length(dat), by = 25000)
 
-      pracma::detrend(dat, tt = "linear", bp = break_pts)
+      as.vector(pracma::detrend(dat, tt = "linear", bp = break_pts))
 
    } else if(read_directions$detrend[[folder]] == "no"){
 
@@ -122,13 +123,13 @@ for(folder in seq_along(read_directions$folder)){
    }
 
    ## RUNNING MEAN & VAR ##
-
+   w_width <- 150
    incProgress(detail = "Calculating Running Mean")
-   run_mean <- running(processed_data, fun = mean, width = 150, by = 75)
+   run_mean <- running(processed_data, fun = mean, width = w_width, by = w_width/2)
 
 
    incProgress(detail = "Calculating Running Variance")
-   run_var <- running(processed_data, fun = var, width = 150, by = 75)
+   run_var <- running(processed_data, fun = var, width = w_width, by = w_width/2)
 
 
    running_table <- tibble(run_mean = run_mean,
@@ -161,12 +162,12 @@ for(folder in seq_along(read_directions$folder)){
                                mean_run_var/2, sd_run_var/2, 3, sd_run_mean)     #s2
 
 
-   hmm <- setpars(hmm, c(hmm_initial_parameters, estimate_hmm_gaussians))
+   hmm <- depmixS4::setpars(hmm, c(hmm_initial_parameters, estimate_hmm_gaussians))
 
 
    set.seed(seed)
 
-   hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = FALSE))
+   hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = hm_emcontrol))
 
    hmm_posterior <- depmixS4::posterior(hmm_fit)
 
@@ -234,7 +235,7 @@ for(folder in seq_along(read_directions$folder)){
    ## Calculate conversion between window length and data points
 
 
-   #old/not necessary
+
    ## COUNT EVENTS ##
    incProgress(detail = "Measuring Events")
 
@@ -265,7 +266,7 @@ for(folder in seq_along(read_directions$folder)){
 
    #convert running mean object to tibble
    run_mean_tibble <- tibble::enframe(run_mean) %>%
-      mutate(index = time(run_mean))
+      mutate(index = seq(1, length(run_mean), length.out = length(run_mean)))
 
    #finds lengths of events in number of running windows
    run_length_encoding <- rle(hmm_posterior$state)
@@ -329,6 +330,8 @@ for(folder in seq_along(read_directions$folder)){
    #So the range of values between the end of state 1 (or start of state 2) and the end of state 2 is the event duration
    regroup_data <- bind_cols(state_1_end = split_data[[1]]$cumsum, state_2_end = split_data[[2]]$cumsum)
 
+
+
    #loop over regrouped data to find the mean of the events displacements
    step_sizes <- vector("list", length = nrow(regroup_data)) #allocate space for output storage of loop
    peak_nm_index <- vector()
@@ -337,7 +340,7 @@ for(folder in seq_along(read_directions$folder)){
       win_values_t <- run_mean_tibble[(regroup_data$state_1_end[i]+1) : (regroup_data$state_2_end[i]),]
       max_step_index <- win_values_t$index[which.max(abs(win_values_t$value))]
       peak_nm_index[i] <- max_step_index
-      step_sizes[[i]] <-  win_values_t$value[which(win_values_t$index == max_step_index)]
+      step_sizes[[i]] <-   win_values_t$value[which(win_values_t$index == max_step_index)]
 
 
    }
@@ -402,8 +405,177 @@ for(folder in seq_along(read_directions$folder)){
    measured_events <- on_off_times %>%
       dplyr::mutate(displacement_nm = direction_correction,
                     condition = paste0(read_directions$condition[[folder]]),
-                    force = displacement_nm*nm2pn) %>%
-      dplyr::select(condition, time_on_ms, time_off_ms, displacement_nm, force)
+                    force = displacement_nm*nm2pn)
+
+
+
+   #find better time on
+   forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1)*conversion),
+                              s2_end = ceiling(regroup_data$state_2_end*conversion))
+
+   backwards_data <- tibble(s1_end = floor(regroup_data$state_1_end*conversion),
+                          s2_end = ceiling((regroup_data$state_2_end + 1)*conversion))
+
+   processed_data_tibble <- tibble(data = as.vector(flip_raw),
+                                   index = seq(1, length(flip_raw), length.out = length(flip_raw)))
+
+   is_positive <- calculate_mean_differences$diff > 0
+
+   ensemble_length <- 1000 #200ms, 0.2 seconds
+   better_time_on_starts <- vector()
+   forward_ensemble_average_data <- vector("list")
+   for(c in 1:nrow(forward_data)){
+
+    if(is_positive[[c]] == TRUE){
+     forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
+    } else {
+      forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
+      forward_chunk$data <- forward_chunk$data * -1
+    }
+
+     forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
+
+     if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
+
+       forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - w_width): forward_data$s2_end[[c]],]
+       forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
+       event_on <- cpts(forward_cpt_obj)
+
+
+     } else {
+
+       event_on <- cpts(forward_cpt_obj)
+
+     }
+
+       better_time_on_starts[[c]] <- forward_chunk$index[event_on]
+
+       start_ensemble <- 1 - event_on
+       forward_chunk <- forward_chunk %>%
+         mutate(forward_index = seq(start_ensemble, by = 1, length.out = nrow(forward_chunk)),
+                event = c)
+
+
+      filter_forward_chunk <- forward_chunk %>%
+                                dplyr::filter(forward_index >= 0) %>%
+                                dplyr::select(-index)
+
+       if(nrow(filter_forward_chunk) < ensemble_length){
+
+         mean_chunk <- mean(filter_forward_chunk$data)
+
+         rep_num <- 1000 - nrow(filter_forward_chunk)
+         forward_extension <- rep(mean_chunk, rep_num)
+         forward_200ms <- tibble(data = c(filter_forward_chunk$data, forward_extension),
+                                    forward_index = 0:999,
+                                    event = c)
+
+       } else {
+
+         forward_200ms <- filter_forward_chunk %>% slice(1:1000)
+      }
+
+      before_event <-  forward_chunk %>%
+        dplyr::filter(forward_index < 0) %>%
+        dplyr::select(-index)
+
+      forward_200ms <- rbind(before_event, forward_200ms)
+
+      forward_ensemble_average_data[[c]] <- forward_200ms
+     }
+
+
+   ####backwards ensemble
+
+   better_time_on_stops <- vector()
+   backwards_ensemble_average_data <- vector("list")
+   for(c in 1:nrow(backwards_data)){
+
+    if(is_positive[[c]] == TRUE){
+     backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
+    } else {
+     backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
+     backwards_chunk$data <- backwards_chunk$data * -1
+    }
+
+     backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
+
+     if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
+
+         backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + w_width),]
+         backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
+         event_off <- cpts(backwards_cpt_obj)
+
+     } else {
+
+       event_off <- cpts(backwards_cpt_obj)
+
+     }
+
+     better_time_on_stops[[c]] <- backwards_chunk$index[event_off]
+
+     start_backward_ensemble <- 1 - event_off
+     backwards_chunk <- backwards_chunk %>%
+       mutate(backward_index = seq(start_backward_ensemble, by = 1, length.out = nrow(backwards_chunk)),
+              event = c)
+
+
+     filter_backwards_chunk <- backwards_chunk %>%
+       dplyr::filter(backward_index <= 0) %>%
+       dplyr::select(-index)
+
+     if(nrow(filter_backwards_chunk) < ensemble_length){
+
+       mean_back_chunk <- mean(filter_backwards_chunk$data)
+
+       rep_num2 <- 1000 - nrow(filter_backwards_chunk)
+       backward_extension <- rep(mean_back_chunk, rep_num2)
+       backward_200ms <- tibble(data = c(backward_extension, filter_backwards_chunk$data),
+                               backward_index = -999:0,
+                               event = c)
+
+     } else {
+
+       backward_200ms <- filter_backwards_chunk %>%
+         dplyr::filter(backward_index <= 0 & backward_index >= -999)
+     }
+
+     after_event <-  backwards_chunk %>%
+       dplyr::filter(backward_index > 0) %>%
+       dplyr::select(-index)
+
+     backward_200ms <- rbind(backward_200ms, after_event)
+
+     backwards_ensemble_average_data[[c]] <- backward_200ms
+   }
+
+   better_time_on <- tibble(start = better_time_on_starts,
+                            stop = better_time_on_stops) %>%
+     mutate(better_time_on_dp = stop - start,
+            better_time_on_ms = (better_time_on_dp/5000)*1000,
+            n_event = 1:length(start))
+
+
+
+
+   #######better step sizes###########
+   #loop over regrouped data to find the mean of the events displacements
+  # better_step <- vector() #allocate space for output storage of loop
+
+   #for(i in 1:nrow(better_time_on)){
+
+
+
+
+  # }
+
+   ###add better on times to final table
+   measured_events <- measured_events %>%
+     full_join(better_time_on) %>%
+   dplyr::select(condition, time_off_ms, better_time_on_ms,  displacement_nm, force) %>%
+     rename("time_on_ms" = better_time_on_ms)
+
+
 
 
    ## SAVE OUTPUT ##
@@ -417,7 +589,30 @@ for(folder in seq_along(read_directions$folder)){
 
    write_csv(measured_events, measured_events_path)
 
+   #save ensemble data
+   forward_ensemble_df <- bind_rows(forward_ensemble_average_data)
 
+   forward_ensemble_path <-  paste0(trap_selected_date,
+                                   "/results/ensemble/",
+                                   read_directions$condition[[folder]],
+                                   "_",
+                                   read_directions$folder[[folder]],
+                                   "_forward_ensemble_data.csv")
+
+   write_csv(forward_ensemble_df, forward_ensemble_path)
+
+   #backwards
+
+   backwards_ensemble_df <- bind_rows(backwards_ensemble_average_data)
+
+   backwards_ensemble_path <-  paste0(trap_selected_date,
+                                    "/results/ensemble/",
+                                    read_directions$condition[[folder]],
+                                    "_",
+                                    read_directions$folder[[folder]],
+                                    "_backwards_ensemble_data.csv")
+
+   write_csv(backwards_ensemble_df, backwards_ensemble_path)
 
    #makae hmm overlay for dygraph
    dp2plot <- 10*5000
@@ -472,12 +667,10 @@ for(folder in seq_along(read_directions$folder)){
                                run_mean = overlay,
                                final_events = measured_events,
                                count_events = count_events,
-                               periods = regroup_data %>%
-                                  mutate(state_2_start = state_1_end * conversion,
-                                         state_2_stop = state_2_end * conversion,
-                                         run_from = state_1_end,
-                                         run_to = state_2_end) %>%
-                                  dplyr::select(state_2_start, state_2_stop, run_from, run_to),
+                               periods = tibble(state_2_start = better_time_on$start,
+                                         state_2_stop = better_time_on$stop,
+                                         run_from = regroup_data$state_1_end,
+                                         run_to = regroup_data$state_2_end),
                                peak_nm_index = peak_nm_index * conversion,
                                rdata_temp_file = rdata_temp_file,
                                hmm_identified_events = hmm_identified_events,
