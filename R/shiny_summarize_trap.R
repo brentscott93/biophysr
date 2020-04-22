@@ -41,22 +41,24 @@ read_exported_directions <- suppressMessages(bind_rows(lapply(directions, read_c
   mutate(grouped_file = raw_data_paths) %>%
   filter(report == "success") %>%
   mutate(event_paths = event_paths) %>%
- # rename("quality_control" = `Quality Control`) %>%
-  filter(quality_control == TRUE)
+  rename("quality_control" = `Quality Control`) %>%
+  filter(quality_control == TRUE) %>%
+  mutate(groupedfile = grouped_file)
 
-
+read_exported_directions %<>% separate(groupedfile, c("none", "user", "bs", "box", "mbl", "d", "bio", "bscott", "trap", "project", "conditions", "date", "obser", "filename"), sep = "/")
 all_hmm_events <- suppressMessages(map(read_exported_directions$event_paths, read_csv, col_names = TRUE))
 
 
+
 for(s in 1:nrow(read_exported_directions)){
-  all_hmm_events[[s]] <- cbind(all_hmm_events[[s]], read_exported_directions$condition[[s]])
+  all_hmm_events[[s]] <- cbind(all_hmm_events[[s]], read_exported_directions$conditions[[s]])
 }
 
 
 
 
 event_files_filtered <- bind_rows(all_hmm_events) %>%
-  rename(conditions = 'read_exported_directions$condition[[s]]') #%>%
+  rename(conditions = 'read_exported_directions$conditions[[s]]') #%>%
  # separate(conditions, c("myo", "ph", "phosphate"), sep = "_")
 
 dir.create(paste0(trap_selected_project$path, "/summary"))
@@ -88,12 +90,12 @@ get_time <- all_grouped %>%
 
 
   for(g in 1:nrow(read_exported_directions)){
-    all_grouped[[g]] <- cbind(all_grouped[[g]], read_exported_directions$condition[[g]])
+    all_grouped[[g]] <- cbind(all_grouped[[g]], read_exported_directions$conditions[[g]])
   }
 
 
   all_grouped <- bind_rows(all_grouped) %>%
-    rename(conditions = 'read_exported_directions$condition[[g]]')
+    rename(conditions = 'read_exported_directions$conditions[[g]]')
 
   get_time <- all_grouped %>%
     group_by(conditions) %>%
@@ -121,7 +123,9 @@ summarize_trap <- event_files_filtered %>%
             force_se = std.error(force, na.rm = TRUE),
             num_events = n()) %>%
   right_join(get_time) %>%
-  mutate_if(is.numeric, round, digits = 2)
+  mutate_if(is.numeric, round, digits = 2) %>%
+  mutate(seconds = minutes*60,
+         events_per_sec = num_events/seconds)
 
 setProgress(value = 0.9, detail = "Writing Data")
 project_name <- trap_selected_project$name
@@ -129,6 +133,7 @@ project_name <- trap_selected_project$name
 
 write_csv(summarize_trap, paste0(trap_selected_project$path,
                                  "/summary/",
+                                 "myoV-control_summary",
                                  project_name,
                                  "_trap_summary.csv"))
 

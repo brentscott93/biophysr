@@ -2,7 +2,7 @@
 % Please edit documentation in R/shiny_hidden_markov_analysis.R
 \name{shiny_hidden_markov_analysis}
 \alias{shiny_hidden_markov_analysis}
-\title{Hidden Markov for Shiny (dropbox)}
+\title{Hidden Markov for Shiny}
 \usage{
 shiny_hidden_markov_analysis(
   trap_selected_date,
@@ -21,7 +21,7 @@ shiny_hidden_markov_analysis(
 
 }
 \description{
-Hidden Markov for Shiny (dropbox)
+Hidden Markov for Shiny
 }
 \examples{
 This is an interactive plot of the running variance and running mean.

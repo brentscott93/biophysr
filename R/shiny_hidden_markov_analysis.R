@@ -1,4 +1,4 @@
-#' Hidden Markov for Shiny (dropbox)
+#' Hidden Markov for Shiny
 #'
 #' @param trap_selected_date
 #' @param mv2nm
@@ -37,7 +37,8 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
     } else {
       read_directions <- suppressMessages(read_csv(directions)) %>%
         mutate(folder = observation_folders,
-               grouped_file = grouped4r_files) %>%
+               grouped_file = grouped4r_files,
+               condition = trap_selected_conditions) %>%
         filter(include == "yes")
 
 
@@ -80,7 +81,7 @@ var_signal_to_noise_directions <- vector("list")
 for(folder in seq_along(read_directions$folder)){
   tryCatch({
     inc_prog_bar <-  nrow(read_directions)*4
-    incProgress(1/inc_prog_bar, paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
+    setProgress(1/inc_prog_bar, paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
 
 
 
@@ -142,11 +143,11 @@ for(folder in seq_along(read_directions$folder)){
    seed <- floor(runif(1, 0, 1e6))
 
    hmm <- depmixS4::depmix(list(run_var~1,
-                      run_mean~1),
+                                run_mean~1),
                  data = running_table,
                  nstates = 2,
-                 family = list(gaussian(),
-                               gaussian()))
+                 family = list(stats::gaussian(),
+                               stats::gaussian()))
 
 
 
@@ -157,17 +158,15 @@ for(folder in seq_along(read_directions$folder)){
    mean_run_var <- mean(run_var)
    sd_run_var <- sd(run_var)
 
-
-   estimate_hmm_gaussians <- c(mean_run_var, sd_run_var, 0, sd_run_mean,
-                               mean_run_var/2, sd_run_var/2, 3, sd_run_mean)     #s2
-
-
-   hmm <- depmixS4::setpars(hmm, c(hmm_initial_parameters, estimate_hmm_gaussians))
-
-
-   set.seed(seed)
-
-   hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = hm_emcontrol))
+   if(hm_emcontrol == T){
+      hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = TRUE))
+   } else {
+      estimate_hmm_gaussians <- c(mean_run_var, sd_run_var, 0, sd_run_mean,
+                                  mean_run_var/2, sd_run_var, 2, sd_run_mean*2)
+      hmm <- depmixS4::setpars(hmm, c(hmm_initial_parameters, estimate_hmm_gaussians))
+      set.seed(seed)
+      hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = FALSE))
+   }
 
    hmm_posterior <- depmixS4::posterior(hmm_fit)
 
@@ -189,7 +188,7 @@ for(folder in seq_along(read_directions$folder)){
 
          set.seed(seed)
 
-         hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = FALSE))
+         hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = hm_emcontrol))
 
          hmm_posterior <- depmixS4::posterior(hmm_fit)
 
@@ -212,7 +211,7 @@ for(folder in seq_along(read_directions$folder)){
 
 
 
-   hmm_file <- file(paste0(trap_selected_date,
+    hmm_file <- file(paste0(trap_selected_date,
                            "/results/model_summary/",
                            read_directions$condition[[folder]],
                            "_",
@@ -251,9 +250,9 @@ for(folder in seq_along(read_directions$folder)){
 
 
 
-   #save running mean, var, & state for ensemble averaging & dygraph
-   hmm_identified_events <- tibble(run_mean = run_mean,
-                                   run_var = run_var,
+   #save running mean, var, & state for dygraph
+   hmm_identified_events <- tibble(run_mean = unname(run_mean),
+                                   run_var = unname(run_var),
                                    state = hmm_posterior$state)
 
 
@@ -411,56 +410,65 @@ for(folder in seq_along(read_directions$folder)){
 
    #find better time on
 
-   forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1)*conversion),
+   forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1.75)*conversion),
                               s2_end = ceiling(regroup_data$state_2_end*conversion))
 
    backwards_data <- tibble(s1_end = floor(regroup_data$state_1_end*conversion),
-                          s2_end = ceiling((regroup_data$state_2_end + 1)*conversion))
+                          s2_end = ceiling((regroup_data$state_2_end + 1.75)*conversion))
 
   # flip_raw_run_mean <- rollmean(as.vector(flip_raw), k = 50, align = "left")
    processed_data_tibble <- tibble(data = as.vector(flip_raw),
                                    index = seq(1, length(flip_raw), length.out = length(flip_raw)))
 
    did_it_flip <- negative_events > positive_events
-
    is_positive <- calculate_mean_differences$diff > 0
+   if(did_it_flip == TRUE){
+      is_positive <- ifelse(is_positive == TRUE, FALSE, TRUE)
+   }
 
-   ensemble_length <- 1000 #200ms, 0.2 seconds
+   ensemble_length <- 300 #data points, 60ms, 0.06 seconds
    better_time_on_starts <- vector()
    forward_ensemble_average_data <- vector("list")
    ensemble_keep1 <- vector()
    for(c in 1:nrow(forward_data)){
-
-    if(is_positive[[c]] == TRUE){
+      print(c)
      forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
-    } else {
-      forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
-      forward_chunk$data <- forward_chunk$data * -1
-    }
 
-      chunk_length <- nrow(forward_chunk)
-      forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
-      forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
+      if(nrow(forward_chunk) > 3000){
+         forward_chunk %<>%
+            slice(1:3000)
+      }
+
+      run_var_chunk <- running(forward_chunk$data, fun = var, width = 50, align = "left")
+      chunk_length <- length(run_var_chunk)*0.7
+      run_var_chunk <- run_var_chunk[1:(chunk_length)]
+
+
+      forward_cpt_obj <- cpt.mean(run_var_chunk, method = "AMOC")
+      forward_chunk %<>%
+         #mutate(data = smth.gaussian(forward_chunk$data, window = 50)) %>%
+        slice(1:chunk_length)
+
+      event_on <- cpts(forward_cpt_obj)
 
      if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
-        if(is_positive[[c]] == TRUE){
 
-       forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - w_width): forward_data$s2_end[[c]],]
-       chunk_length <- nrow(forward_chunk)
-       forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
-       forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
-       event_on <- cpts(forward_cpt_obj)
+       forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - (1.5*w_width)): forward_data$s2_end[[c]],]
 
-        } else {
-        forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - w_width): forward_data$s2_end[[c]],]
-        forward_chunk$data <- forward_chunk$data * -1
-        chunk_length <- nrow(forward_chunk)
-        forward_chunk <- slice(forward_chunk, 1:(chunk_length*.75))
-        forward_cpt_obj <- cpt.var(forward_chunk$data, method = "AMOC")
-        event_on <- cpts(forward_cpt_obj)
-        }
+       if(nrow(forward_chunk) > 3000){
+          forward_chunk %<>%
+             slice(1:3000)
+       }
 
-     } else {
+       run_var_chunk <- running(forward_chunk$data, fun = var, width = 50, align = "left")
+       chunk_length <- length(run_var_chunk)*0.7
+       run_var_chunk <- run_var_chunk[1:(chunk_length)]
+
+       forward_cpt_obj <- cpt.mean(run_var_chunk, method = "AMOC")
+
+       forward_chunk %<>%
+          #mutate(data = smth.gaussian(forward_chunk$data, window = 50)) %>%
+         slice(1:chunk_length)
 
        event_on <- cpts(forward_cpt_obj)
 
@@ -481,7 +489,8 @@ for(folder in seq_along(read_directions$folder)){
      }
 
        start_ensemble <- 1 - event_on
-       forward_chunk <- forward_chunk %>%
+
+       forward_chunk %<>%
          mutate(forward_index = seq(start_ensemble, by = 1, length.out = nrow(forward_chunk)),
                 event = c)
 
@@ -491,27 +500,32 @@ for(folder in seq_along(read_directions$folder)){
                                 dplyr::select(-index)
 
        if(nrow(filter_forward_chunk) < ensemble_length){
+         mean_data <- ceiling(length(filter_forward_chunk$data)*.95)
+         diff_length <- length(filter_forward_chunk$data) -  mean_data
+         mean_chunk <- mean(filter_forward_chunk$data[diff_length : length(filter_forward_chunk$data) ])
 
-         mean_chunk <- mean(filter_forward_chunk$data)
-
-         rep_num <- 1000 - nrow(filter_forward_chunk)
+         rep_num <- 300 - nrow(filter_forward_chunk)
          forward_extension <- rep(mean_chunk, rep_num)
-         forward_200ms <- tibble(data = c(filter_forward_chunk$data, forward_extension),
-                                    forward_index = 0:999,
+         forward_60ms <- tibble(data = c(filter_forward_chunk$data, forward_extension),
+                                    forward_index = 0:299,
                                     event = c)
 
        } else {
 
-         forward_200ms <- filter_forward_chunk %>% slice(1:1000)
+         forward_60ms <- filter_forward_chunk %>% slice(1:300)
       }
 
       before_event <-  forward_chunk %>%
         dplyr::filter(forward_index < 0) %>%
         dplyr::select(-index)
 
-      forward_200ms <- rbind(before_event, forward_200ms)
+      forward_60ms %<>% rbind(before_event) %>%
+         mutate(is_positive = is_positive[[c]],
+                conditions = trap_selected_conditions,
+                date = trap_selected_date) %>%
+         arrange(forward_index)
 
-      forward_ensemble_average_data[[c]] <- forward_200ms
+      forward_ensemble_average_data[[c]] <- forward_60ms
      }
 
 
@@ -520,40 +534,49 @@ for(folder in seq_along(read_directions$folder)){
    backwards_ensemble_average_data <- vector("list")
    ensemble_keep2 <- vector()
    for(c in 1:nrow(backwards_data)){
-     # print(c)
-    if(is_positive[[c]] == TRUE){
+    print(c)
      backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
-    } else {
-     backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
-     backwards_chunk$data <- backwards_chunk$data * -1
-    }
 
-     bward_chunk_length <- nrow(backwards_chunk)
-     backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
-     backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
+     if(nrow(backwards_chunk) > 3000){
+        lb <- nrow(backwards_chunk)
+        backwards_chunk %<>%
+           slice((lb-3000):lb)
+     }
+
+     bward_run_var_chunk <- running(backwards_chunk$data, fun = var, width = 50, align = "right", allow.fewer = F, pad = T)
+     bward_chunk_length <- length(bward_run_var_chunk)
+     bward_run_var_chunk <- bward_run_var_chunk[(bward_chunk_length*0.3):bward_chunk_length]
+
+
+     backwards_cpt_obj <- cpt.mean(bward_run_var_chunk, method = "AMOC")
+     backwards_chunk %<>%
+        #mutate(data = smth.gaussian(backwards_chunk$data, window = 50)) %>%
+       slice((bward_chunk_length * 0.3):bward_chunk_length)
+     event_off <- cpts(backwards_cpt_obj)
+
 
      if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
-        if(is_positive[[c]] == TRUE){
+      #  if(is_positive[[c]] == TRUE){
 
-         backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + w_width),]
-         bward_chunk_length <- nrow(backwards_chunk)
-         backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
-         backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
+         backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + (1.5*w_width)),]
+
+
+         if(nrow(backwards_chunk) > 3000){
+            lb <- nrow(backwards_chunk)
+            backwards_chunk %<>%
+               slice((lb-3000):lb)
+         }
+
+         bward_run_var_chunk <- running(backwards_chunk$data, fun = var, width = 50, align = "right", allow.fewer = F, pad = T)
+         bward_chunk_length <- length(bward_run_var_chunk)
+         bward_run_var_chunk <- bward_run_var_chunk[(bward_chunk_length*0.3):bward_chunk_length]
+
+
+         backwards_cpt_obj <- cpt.mean(bward_run_var_chunk, method = "AMOC")
+         backwards_chunk %<>%
+            #mutate(data = smth.gaussian(backwards_chunk$data, window = 50)) %>%
+            slice((bward_chunk_length * 0.3):bward_chunk_length)
          event_off <- cpts(backwards_cpt_obj)
-
-        } else {
-           backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + w_width),]
-           backwards_chunk$data <- backwards_chunk$data * -1
-           bward_chunk_length <- nrow(backwards_chunk)
-           backwards_chunk <- slice(backwards_chunk, (bward_chunk_length*0.25):bward_chunk_length)
-           backwards_cpt_obj <- cpt.var(backwards_chunk$data, method = "AMOC")
-           event_off <- cpts(backwards_cpt_obj)
-
-        }
-
-     } else {
-
-       event_off <- cpts(backwards_cpt_obj)
 
      }
 
@@ -571,7 +594,7 @@ for(folder in seq_along(read_directions$folder)){
      }
 
      start_backward_ensemble <- 1 - event_off
-     backwards_chunk <- backwards_chunk %>%
+     backwards_chunk %<>%
        mutate(backward_index = seq(start_backward_ensemble, by = 1, length.out = nrow(backwards_chunk)),
               event = c)
 
@@ -582,34 +605,40 @@ for(folder in seq_along(read_directions$folder)){
 
      if(nrow(filter_backwards_chunk) < ensemble_length){
 
-       mean_back_chunk <- mean(filter_backwards_chunk$data)
+       mean_back_chunk <- mean(filter_backwards_chunk$data[1:(nrow( filter_backwards_chunk)*0.95)])
 
-       rep_num2 <- 1000 - nrow(filter_backwards_chunk)
+       rep_num2 <- 300 - nrow(filter_backwards_chunk)
        backward_extension <- rep(mean_back_chunk, rep_num2)
-       backward_200ms <- tibble(data = c(backward_extension, filter_backwards_chunk$data),
-                               backward_index = -999:0,
+       backward_60ms <- tibble(data = c(backward_extension, filter_backwards_chunk$data),
+                               backward_index = -299:0,
                                event = c)
 
      } else {
 
-       backward_200ms <- filter_backwards_chunk %>%
-         dplyr::filter(backward_index <= 0 & backward_index >= -999)
+       backward_60ms <- filter_backwards_chunk %>%
+         dplyr::filter(backward_index <= 0 & backward_index >= -299)
      }
 
      after_event <-  backwards_chunk %>%
        dplyr::filter(backward_index > 0) %>%
        dplyr::select(-index)
 
-     backward_200ms <- rbind(backward_200ms, after_event)
+     backward_60ms %<>% rbind(after_event) %>%
+        mutate(is_positive = is_positive[[c]],
+               conditions = trap_selected_conditions,
+               date = trap_selected_date)
 
-     backwards_ensemble_average_data[[c]] <- backward_200ms
+     backwards_ensemble_average_data[[c]] <- backward_60ms
    }
+
+
 
    better_time_on <- tibble(start = better_time_on_starts,
                             stop = better_time_on_stops,
                             keep1 = ensemble_keep1,
                             keep2 = ensemble_keep2,
-                            n_event = 1:length(start)) %>%
+                            n_event = 1:length(start),
+                            is_positive = is_positive) %>%
      mutate(better_time_on_dp = stop - start,
             better_time_on_ms = (better_time_on_dp/5000)*1000)
 
@@ -617,35 +646,46 @@ for(folder in seq_along(read_directions$folder)){
 
    dygraph_periods <- cbind(better_time_on, regroup_data) %>%
       mutate(state_2_start = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
-                      state_1_end,
+                      state_1_end*conversion,
                       start),
              state_2_stop = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
-                            state_2_end,
+                            state_2_end*conversion,
                             stop)) %>%
       rename("run_from" = state_1_end,
              "run_to" = state_2_end) %>%
       dplyr::select(state_2_start, state_2_stop, run_from, run_to)
 
 
-   #######better step sizes###########
-   #loop over regrouped data to find the mean of the events displacements
-  # better_step <- vector() #allocate space for output storage of loop
 
-   #for(i in 1:nrow(better_time_on)){
-
-
-
-
-  # }
 
    ###add better on times to final table
-   measured_events <- full_join(measured_events, better_time_on) %>%
-      mutate(final_time_ons_ms = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE,
+   measured_events %<>% full_join(better_time_on) %>%
+      mutate(final_time_ons_ms = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE | better_time_on_dp <= 0,
                                         time_on_ms,
                                         better_time_on_ms)) %>%
       dplyr::select(condition, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
       rename("time_on_ms" = final_time_ons_ms)
 
+   #######better step sizes###########
+   #loop over regrouped data to find the mean of the events displacements
+  # better_step <- vector() #allocate space for output storage of loop
+   #for(i in 1:nrow(measured_events)){
+    #  if(is.na(measured_events$start[[i]]) == T | is.na(measured_events$stop[[i]]) == T){
+     #    better_step[[i]] <- measured_events$displacement_nm[[i]]
+#      } else {
+ #        e_start <- measured_events$start[[i]]
+  #       e_stop <- measured_events$stop[[i]]
+   #      l_event <- length(e_start:e_stop)*0.05/2 #get length of event in data points, get 5% of that, and divide by 2 to subtract/add
+    #     e_start %<>% sum(l_event)
+     #    e_stop <- e_stop - l_event
+      #   event_chunk <- processed_data_tibble %>% slice(e_start:e_stop)
+       #  better_step[[i]] <- mean(event_chunk$data)
+#      }
+
+#   }
+
+
+   # final selectionsdplyr::select(condition, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
 
    ## SAVE OUTPUT ##
    incProgress(detail = "Saving Events")
@@ -684,7 +724,7 @@ for(folder in seq_along(read_directions$folder)){
    write_csv(backwards_ensemble_df, backwards_ensemble_path)
 
    #makae hmm overlay for dygraph
-   dp2plot <- 10*5000
+   #dp2plot <- 10*5000
 
    s1_avg_4plot <- tibble(state_order = seq(from = 1, length.out = length(state_1_avg), by = 2),
                           avg = flip_state_1_avg)
@@ -909,9 +949,9 @@ grid.arrange(mv1, mv2, nrow = 1)
    report[[folder]] <- paste0("failed_to_render_dygraph!_", read_directions$folder[[folder]])
 
 
-   rendered <-  tempfile(pattern = "rendered", fileext = ".html", tmpdir = temp_dir)
+   #rendered <-  tempfile(pattern = "rendered", fileext = ".html", tmpdir = temp_dir)
 
-   rendered <- chartr("\\", "/", rendered)
+   #rendered <- chartr("\\", "/", rendered)
 
 
    rmarkdown::render(input = paste0(temp_dir,
@@ -953,7 +993,7 @@ signal <- tibble(sig = unlist(var_signal_to_noise_directions)) %>%
    separate(sig, c("folder", "signal"), sep = "!_")
 
 export_directions <- read_csv(directions) %>%
-  dplyr::select(observation, baseline_start_sec, baseline_stop_sec, detrend, include) %>%
+  dplyr::select(starts_with("obs"), baseline_start_sec, baseline_stop_sec, detrend, include) %>%
   mutate(folder = observation_folders,
          grouped_file = grouped4r_files) %>%
   left_join(signal)
@@ -968,17 +1008,6 @@ success_report <- tibble(analysis_complete = unlist(report)) %>%
   dplyr::select(-starts_with("grouped_file"))
 
 write_csv(success_report, paste0(trap_selected_date, "/directions.csv"), append = FALSE)
-
-
-
-
-
-
-
-
-
-
-
 
 
 incProgress(1, detail = "Done!")

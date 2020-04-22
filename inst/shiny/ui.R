@@ -22,6 +22,8 @@ suppressPackageStartupMessages({
   library(dashboardthemes)
   library(shinydashboard)
   library(shinyjs)
+  library(smoother)
+  library(magrittr)
   library(changepoint)
   library(depmixS4)
 })
