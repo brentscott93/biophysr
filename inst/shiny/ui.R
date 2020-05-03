@@ -38,15 +38,18 @@ sidebar <- dashboardSidebar(
 
 
         menuItem("Home", tabName = "home", icon = icon("home")),
-        menuItem("Motility",  tabName = "motility", icon = icon("tachometer-alt")),
+        menuItem("Motility",  tabName = "motility", icon = icon("tachometer-alt"),
+                 menuSubItem(text = "Summarize ImageJ", tabName = "imagej"),
+                 menuSubItem(text = "Analyze", tabName = "mot_summarize")),
+                # menuSubItem(text = "Curve Fitting", tabName = "curve_fitting"))
 
         menuItem("Laser Trap", tabName = "trap",  icon = icon("dna"),
                  menuSubItem(text = "Initialize Data", tabName = "trap_init_data"),
                  menuSubItem(text = "Data Preparation", tabName = "trap_data_prep"),
                  menuSubItem(text = "Analyze", tabName = "trap_analyze"),
-                 menuSubItem(text = "Summarize", tabName = "trap_summarize")),
-        menuItem("   Dropbox", icon = icon("dropbox"), href = "https://www.dropbox.com/sh/9voaw8mj4qvcg4z/AABAguMz9PUdkWBcAp_wilEva?dl=0",
-                 newtab = TRUE)
+                 menuSubItem(text = "Summarize", tabName = "trap_summarize"))
+       # menuItem("Esquisser", tabName = "esquisser",  icon = icon("pencil-ruler")
+
   ),
 
   switchInput(
