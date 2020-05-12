@@ -434,6 +434,16 @@ for(folder in seq_along(read_directions$folder)){
       print(c)
      forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
 
+     has_na <- table(is.na(forward_chunk$data))
+
+     if(length(has_na) > 1){
+       better_time_on_starts[[c]] <- NA
+       ensemble_keep1[[c]] <- FALSE
+
+       next
+
+     }
+
       if(nrow(forward_chunk) > 3000){
          forward_chunk %<>%
             slice(1:3000)
@@ -534,8 +544,21 @@ for(folder in seq_along(read_directions$folder)){
    backwards_ensemble_average_data <- vector("list")
    ensemble_keep2 <- vector()
    for(c in 1:nrow(backwards_data)){
+    try({
     print(c)
      backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
+
+     has_na <- table(is.na(backwards_chunk$data))
+
+    if(length(has_na) > 0){
+      better_time_on_stops[[c]] <- NA
+      ensemble_keep2[[c]] <- FALSE
+
+      next
+
+    }
+
+
 
      if(nrow(backwards_chunk) > 3000){
         lb <- nrow(backwards_chunk)
@@ -629,6 +652,7 @@ for(folder in seq_along(read_directions$folder)){
                date = trap_selected_date)
 
      backwards_ensemble_average_data[[c]] <- backward_60ms
+   })
    }
 
 
