@@ -1,15 +1,17 @@
 #' Mini Ensemble analyzer for shiny
 #'
-#' @param parent_dir
+#' @param trap_selected_date
+#' @param trap_selected_conditions
 #' @param mv2nm
 #' @param nm2pn
-#' @param run_mean_color
+#' @param color
+#' @param file_type
 #'
 #' @return
 #' @export
 #'
 #' @examples
-shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color){
+shiny_mini_ensemble_analyzer <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, color, file_type){
 
     withProgress(message = 'Analyzing Mini Ensemble', value = 0, max = 1, min = 0, {
     incProgress(amount = .01, detail = "Reading Data")
@@ -17,41 +19,53 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
     #setwd(parent_dir)
 
-    observation_folders <- drop_dir(trap_selected_date) %>%
-      dplyr::filter(str_detect(name, "obs")) %>%
-      pull(name)
+      observation_folders <- list_dir(trap_selected_date) %>%
+        dplyr::filter(str_detect(name, "obs")) %>%
+        pull(name)
 
-    grouped4r_files <- drop_dir(trap_selected_date, recursive = TRUE) %>%
-      dplyr::filter(str_detect("grouped")) %>%
-      pull(path_display)
+      grouped4r_files <- list_dir(trap_selected_date, recursive = TRUE) %>%
+        dplyr::filter(str_detect(name, "grouped")) %>%
+        pull(path)
 
-    directions <- drop_dir(trap_selected_date) %>%
-      dplyr::filter(name == "directions.csv") %>%
-      pull(path_display)
-
-    read_directions <- suppressMessages(drop_read_csv(directions)) %>%
-      mutate(folder = observation_folders,
-             grouped_file = grouped4r_files) %>%
-      filter(include == "yes")
+      directions <- list_dir(trap_selected_date) %>%
+        dplyr::filter(name == "directions.csv") %>%
+        pull(path)
 
 
-    read_directions$baseline_start_sec <- if(baseline_start_sec == 0){
-                                            1/5000
-                                           } else {
-                                           read_directions$baseline_start_sec*5000
-                                           }
+      if(file_type == "csv"){
+        read_directions <- suppressMessages(read_csv(directions)) %>%
+          mutate(folder = observation_folders,
+                 grouped_file = grouped4r_files,
+                 condition = trap_selected_conditions)%>%
+          filter(include == "yes")
 
-    read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
+      } else {
+        read_directions <- suppressMessages(read_csv(directions)) %>%
+          mutate(folder = observation_folders,
+                 grouped_file = grouped4r_files,
+                 condition = trap_selected_conditions) %>%
+          filter(include == "yes")
 
-    #create results folders for output
-    results_folder <- paste0(trap_selected_date, "/results")
-    drop_create(results_folder)
-    events_folder <- paste0(trap_selected_date, "/results/events")
-    drop_create(events_folder)
-    plots_folder <- paste0(trap_selected_date, "/results/plots")
-    drop_create(plots_folder)
 
-    error_file <- file("log.txt", open = "a")
+      }
+
+      read_directions$baseline_start_sec <- as.numeric(read_directions$baseline_start_sec)
+      read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
+
+      read_directions$baseline_stop_sec <- as.numeric(read_directions$baseline_stop_sec)
+      read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
+
+      #create results folders for output on dropbox
+      results_folder <- paste0(trap_selected_date, "/results")
+      dir.create(results_folder)
+      events_folder <- paste0(trap_selected_date, "/results/events")
+      dir.create(events_folder)
+      plots_folder <- paste0(trap_selected_date, "/results/plots")
+      dir.create(plots_folder)
+
+
+
+    error_file <- file("error_log.txt", open = "a")
     writeLines(paste0("Mini-ensemble anlaysis performed on ", Sys.time(), "\n"), error_file)
     inc_prog_bar <-  nrow(read_directions) * 4
     report <- vector("list")
@@ -63,7 +77,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
         report[[folder]] <- paste0("failed_to_initialize!_", read_directions$folder[[folder]])
 
         #Load data and convert mV to nm
-        dat <- drop_read_csv(read_directions$grouped_file[[folder]]) %>%
+        dat <- read_csv(read_directions$grouped_file[[folder]]) %>%
           mutate(nm_converted = bead*mv2nm) %>%
           dplyr::pull(nm_converted)
 
@@ -86,7 +100,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
         #build table for analysis
 
-        raw_data <- tibble(index = time(processed),
+        raw_data <- tibble(index = 1:nrow(processed),
                            trap = processed)
 
          #calculate running mean
@@ -158,11 +172,11 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
         run_mean_rescaled <- as.vector(rollmean(rescaled_raw_data$trap, k = 50, align = "left"))
 
         run_mean_rescaled <- tibble(run_mean = run_mean_rescaled,
-                                    index = time(run_mean_rescaled))
+                                   index = 1:length(run_mean_rescaled))
 
         rescaled_events <- identify_mini_events(raw_data, run_mean_rescaled$run_mean)
 
-        ##### FIND OFF TIMES #######
+        ##### FIND OFF TIMES #### ##
 
         minus1 <- rescaled_events$state_1_end[-1]
         minus2 <- rescaled_events$state_2_end[-length(rescaled_events$state_2_end)]
@@ -174,19 +188,18 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
         ###### FORCES #####
 
-        peak_displacement_df <- tibble(run_mean = NA,
-                                       index = NA)
+        peak_displacement_df <- list()
 
         for(i in 1:nrow(rescaled_events)){
           temp_df <- run_mean_rescaled[(rescaled_events$state_1_end[i] + 1) : (rescaled_events$state_2_end[i]),]
 
           find_event_peak <- max(find_peaks(temp_df$run_mean, m = length(temp_df$run_mean)))
 
-          peak_displacement_df[i,] <- temp_df[find_event_peak,]
+          peak_displacement_df[[i]] <- temp_df[find_event_peak,]
 
         }
 
-        peak_displacement_df <- peak_displacement_df %>%
+        peak_displacement_df %<>% bind_rows %>%
           rename(displacement_nm = run_mean)%>%
           mutate(converted_force = displacement_nm*nm2pn)
 
@@ -225,7 +238,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
         incProgress(detail = paste("Identified", nrow(final_events), "events in", length(dat)/5000, "seconds"))
 
-        temp_final_events <- write_temp_csv(final_events, file = paste0(events_folder,
+         write_csv(final_events, path = paste0(events_folder,
                                               "/",
                                               read_directions$condition[[folder]],
                                               "_",
@@ -233,7 +246,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
                                               "_",
                                               "mini_ensemble_events.csv"))
 
-        drop_upload(temp_final_events, path = events_folder)
+        #drop_up_load(temp_final_events, path = events_folder)
 
         #plot
        # filter_final_events1 <- filter(final_events_4_plot, end_s2 < 20000)
@@ -251,27 +264,21 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
         #save dygraph data
 
-        temp_dir <-  paste0(tempdir(), "/", squysh_time(),"_", read_directions$condition[[folder]], "_", read_directions$folder[[folder]])
+        temp_dir <-  chartr("\\", "/", paste0(tempdir(), "/", squysh_time(),"_", read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))
 
         dir.create(temp_dir)
 
+
         rdata_temp_file <- tempfile(pattern = "rdata", tmpdir = temp_dir)
         rdata_temp_file <-  chartr("\\", "/", rdata_temp_file)
-
-        save("dygraph_master_list", file =  rdata_temp_file)
 
 
         dygraph_master_list <- list(raw_data = rescaled_raw_data$trap,
                                     run_mean = run_mean_rescaled0,
                                     final_events = final_events_4_plot,
-                                    parent_dir = parent_dir)
+                                    trap_selected_date = trap_selected_date)
 
-        save("dygraph_master_list", file = paste0(read_directions$folder[[folder]],
-                                                  "/results/",
-                                                  read_directions$condition[[folder]],
-                                                  "_",
-                                                  read_directions$folder[[folder]],
-                                                  "_dygraph_data.RData"))
+        save("dygraph_master_list", file =  rdata_temp_file)
 
 
 
@@ -279,28 +286,18 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
         #make dygraph .R file
         writeLines(c(
           "#+ echo=FALSE",
-          paste0("parent_dir <- ","'", parent_dir, "'"),
-          paste0("obs <- ", "'", read_directions$folder[[folder]], "'"),
+          paste0("rdata_temp_file <- ","'", rdata_temp_file, "'"),
           paste0("run_mean_color <- ", "'",color, "'"),
           "
 #+ echo=FALSE, fig.width = 10, fig.height = 4
-  setwd(parent_dir)
+
 
   suppressPackageStartupMessages(library(tidyverse))
   library(dygraphs)
   library(rmarkdown)
 
 
-  directions <- list.files(pattern = 'directions.csv')
-  observation_folders <- list.files(pattern = 'obs')
-
-  read_directions <- suppressMessages(read_csv(directions)) %>%
-  mutate(folder = observation_folders)%>%
-  filter(include == 'yes')
-
-  setwd(paste0(parent_dir, '/', obs, '/results'))
-  dg_dat <- list.files(pattern = 'dygraph_data.RData')
-  load(dg_dat)
+  load(rdata_temp_file)
 
   d <- data.frame(index = 1:length(dygraph_master_list$run_mean),
                   raw = dygraph_master_list$raw_data[1:length(dygraph_master_list$run_mean)],
@@ -339,8 +336,8 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
   "),
 
-          paste0(temp_dir,
-                 "/",
+          paste0(trap_selected_date,
+                 '/results/plots/',
                  read_directions$condition[[folder]],
                  "_",
                  read_directions$folder[[folder]],
@@ -350,21 +347,21 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 #render to HTML
 
 
-        rmarkdown::render(input = paste0(temp_dir,
-                                         "/",
+        rmarkdown::render(input = paste0(trap_selected_date,
+                                         '/results/plots/',
                                          read_directions$condition[[folder]],
                                          "_",
                                          read_directions$folder[[folder]],
                                          "_dygraph.R"),
                           envir = new.env())
 
-        drop_upload(paste0(temp_dir,
-                           "/",
-                           read_directions$condition[[folder]],
-                           "_",
-                           read_directions$folder[[folder]],
-                           "_dygraph.html"),
-                    path = plots_folder)
+        # drop_upload(paste0(temp_dir,
+        #                    "/",
+        #                    read_directions$condition[[folder]],
+        #                    "_",
+        #                    read_directions$folder[[folder]],
+        #                    "_dygraph.html"),
+        #             path = plots_folder)
 
         report[[folder]] <- paste0("success!_", read_directions$folder[[folder]])
 
@@ -380,7 +377,7 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
 
     close(error_file)
 
-    export_directions <- drop_read_csv(directions) %>%
+    export_directions <- read_csv(directions) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files)
 
@@ -391,18 +388,19 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, mv2nm, nm2pn, color
       arrange(folder) %>%
       dplyr::select(-starts_with("grouped_file"))
 
-   success_report_path <-  write_temp_csv(success_report, filename = "directions.csv")
+     write_csv(success_report, path = paste0(trap_selected_date, "/directions.csv"))
 
-    drop_delete(directions)
+    #drop_delete(directions)
 
-    drop_upload(success_report_path, path = trap_selected_date)
+    #drop_upload(success_report_path, path = trap_selected_date)
 
    incProgress(1, detail = "Done!")
 
   }) #close withProgress
 
-  sendSweetAlert(session = session,
-                title =  "Mini-ensemble analysis complete",
-                text = "Results saved to Dropbox",
-                   type = "success")
-  }
+  # sendSweetAlert(session = session,
+  #                title =  "Mini-ensemble analysis complete",
+  #                text = "Results saved to Box",
+  #                type = "success")
+}
+

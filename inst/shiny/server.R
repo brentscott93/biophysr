@@ -761,18 +761,18 @@ rv <- reactiveValues()
     #Start laser trap analyzers
 
     #Check for valid folder
-    observeEvent(input$mini_action_button, {
-        if(is_empty(trap_selected_date()) == TRUE){
-            showNotification("No Folder Selected. Please select a folder with the folder chooser above.",
-                             type = "error")
-        } else if(is_empty(trap_selected_date()) == FALSE){
-
-            biophysr::shiny_mini_ensemble_analyzer(trap_selected_date = trap_selected_date()$path,
-                                                   mv2nm = as.numeric(input$manual_step_cal),
-                                                   nm2pn = as.numeric(input$manual_step_stiffness),
-                                                   run_mean_color = input$trap_color)
-        }
-    })
+    # observeEvent(input$mini_action_button, {
+    #     if(is_empty(trap_selected_date()) == TRUE){
+    #         showNotification("No Folder Selected. Please select a folder with the folder chooser above.",
+    #                          type = "error")
+    #     } else if(is_empty(trap_selected_date()) == FALSE){
+    #
+    #         biophysr::shiny_mini_ensemble_analyzer(trap_selected_date = trap_selected_date()$path,
+    #                                                mv2nm = as.numeric(input$manual_step_cal),
+    #                                                nm2pn = as.numeric(input$manual_step_stiffness),
+    #                                                run_mean_color = input$trap_color)
+    #     }
+    # })
 
    # observeEvent(input$hmm_action_button, {
         #if(is_empty(laser_path()) == TRUE){
@@ -785,9 +785,14 @@ rv <- reactiveValues()
   #  })
 
 
-    #HMM analysis
-    hmm_analyzed <- observeEvent(input$analyze_trap, {
-        req(!is.null(trap_selected_date()))
+    #analyze trap
+    observeEvent(input$analyze_trap, {
+
+      if(input$trap_analyzer == 'hmm'){
+        if(is_empty(input$trap_date_selectInput)){
+          showNotification("No Folder Selected. Please select a folder with the folder chooser above.",
+                           type = "error")
+        } else {
         biophysr::shiny_hidden_markov_analysis(trap_selected_date = trap_selected_date()$path,
                                                trap_selected_conditions = trap_selected_conditions()$name,
                                                mv2nm = as.numeric(input$manual_step_cal),
@@ -799,6 +804,28 @@ rv <- reactiveValues()
                        title =  "Hidden Markov Analysis Complete",
                        text = "Results saved to Box",
                        type = "success")
+        }
+
+      } else if(input$trap_analyzer == 'mini'){
+          if(is_empty(input$trap_date_selectInput)){
+          showNotification("No Folder Selected. Please select a folder with the folder chooser above.",
+                           type = "error")
+        } else {
+
+
+          biophysr::shiny_mini_ensemble_analyzer(trap_selected_date = trap_selected_date()$path,
+                                                 trap_selected_conditions = trap_selected_conditions()$name,
+                                                 mv2nm = as.numeric(input$manual_step_cal),
+                                                 nm2pn = as.numeric(input$manual_trap_stiffness),
+                                                 color = input$trap_color,
+                                                 file_type = input$trap_file_type)
+
+        sendSweetAlert(session = session,
+                       title =  "Mini-Ensemble Analysis Complete",
+                       text = "Results saved to Box",
+                       type = "success")
+       }
+      }
     })
 
 

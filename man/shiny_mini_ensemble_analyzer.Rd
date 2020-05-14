@@ -10,6 +10,8 @@ shiny_mini_ensemble_analyzer(trap_selected_date, mv2nm, nm2pn, color)
 shiny_mini_ensemble_analyzer(trap_selected_date, mv2nm, nm2pn, color)
 }
 \arguments{
+\item{file_type}{}
+
 \item{run_mean_color}{}
 }
 \value{
