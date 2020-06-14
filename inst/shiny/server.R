@@ -794,7 +794,6 @@ rv <- reactiveValues()
                            type = "error")
         } else {
         biophysr::shiny_hidden_markov_analysis(trap_selected_date = trap_selected_date()$path,
-                                               trap_selected_conditions = trap_selected_conditions()$name,
                                                mv2nm = as.numeric(input$manual_step_cal),
                                                nm2pn = as.numeric(input$manual_trap_stiffness),
                                                overlay_color = input$trap_color,
