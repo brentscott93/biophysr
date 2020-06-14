@@ -6,7 +6,6 @@
 \usage{
 shiny_hidden_markov_analysis(
   trap_selected_date,
-  trap_selected_conditions,
   mv2nm,
   nm2pn,
   overlay_color,
@@ -15,10 +14,20 @@ shiny_hidden_markov_analysis(
 )
 }
 \arguments{
-\item{overlay_color}{}
+\item{trap_selected_date}{absolute file path}
+
+\item{mv2nm}{numeric conversion}
+
+\item{nm2pn}{numeric conversion}
+
+\item{overlay_color}{color choice for model overlay}
+
+\item{file_type}{either 'csv' or 'txt'}
+
+\item{hm_emcontrol}{logical. TRUE/FALSE}
 }
 \value{
-
+Creates a folder named 'results' in each 'obs-##' folder and saves files directly to it
 }
 \description{
 Hidden Markov for Shiny

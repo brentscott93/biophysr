@@ -1,15 +1,17 @@
 #' Hidden Markov for Shiny
 #'
-#' @param trap_selected_date
-#' @param mv2nm
-#' @param nm2pn
-#' @param overlay_color
+#' @param trap_selected_date absolute file path
+#' @param mv2nm numeric conversion
+#' @param nm2pn numeric conversion
+#' @param overlay_color color choice for model overlay
+#' @param file_type either 'csv' or 'txt'
+#' @param hm_emcontrol logical. TRUE/FALSE
 #'
-#' @return
+#' @return Creates a folder named 'results' in each 'obs-##' folder and saves files directly to it
 #' @export
 #'
 #' @examples
-shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, overlay_color, file_type, hm_emcontrol){
+shiny_hidden_markov_analysis <- function(trap_selected_date, mv2nm, nm2pn, overlay_color, file_type, hm_emcontrol){
 
    #for dev / troubleshooting
    # trap_selected_date <- '/Users/brentscott/Box Sync/Muscle Biophysics Lab/Data/biophysr/bscott/trap/project_myoV/myoV-S217A_pH7.0_30mM-Pi/022719/observations'
@@ -20,16 +22,14 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
    # file_type <-  'txt'
    # hm_emcontrol <- F
 
-  #could be useful to get all info at start to id all data with
+  #get all info at start to id all data with
   #all info is in the file path
-  # split_data_path <-unlist(strsplit(trap_selected_date, split = '/trap/'))[2]
-  #
-  # split_again <- unlist(strsplit(split_data_path, split = '/'))
-  #
-  # project <- split_again[[1]]
-  # conditions <- split_again[[2]]
-  # date <- split_again[[3]]
-  #
+  split_data_path <-unlist(strsplit(trap_selected_date, split = '/trap/'))[2]
+  split_again <- unlist(strsplit(split_data_path, split = '/'))
+  project <- split_again[[1]]
+  conditions <- split_again[[2]]
+  date <- split_again[[3]]
+
 
   withProgress(message = 'HMM Analysis in Progress', value = 0, max = 1, min = 0, {
     incProgress(amount = .01, detail = "Reading Data")
@@ -51,7 +51,7 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
     read_directions <- suppressMessages(read_csv(directions)) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files,
-             conditions = trap_selected_conditions,
+             conditions = conditions,
              baseline_start_sec = as.numeric(baseline_start_sec)*5000,
              baseline_stop_sec = as.numeric(baseline_stop_sec)*5000) %>%
       filter(include == "yes")
@@ -60,7 +60,7 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
       read_directions <- suppressMessages(read_csv(directions)) %>%
         mutate(folder = observation_folders,
                grouped_file = grouped4r_files,
-               conditions = trap_selected_conditions,
+               conditions = conditions,
                baseline_start_sec = as.numeric(baseline_start_sec)*5000,
                baseline_stop_sec = as.numeric(baseline_stop_sec)*5000) %>%
         filter(include == "yes")
@@ -265,7 +265,7 @@ for(folder in seq_along(read_directions$folder)){
                              c("1-1", "1-2", "2-1", "2-2"))
 
    count_events <- as.data.frame(counter, row.names = "#_transitions", make.names = TRUE) %>%
-      mutate(conditions = paste0( read_directions$conditions[[folder]]))
+      mutate(conditions = conditions)
 
 
 
@@ -423,7 +423,9 @@ for(folder in seq_along(read_directions$folder)){
    #add step sizes and forces to the on_off_times table
    measured_events <- on_off_times %>%
       dplyr::mutate(displacement_nm = direction_correction,
-                    conditions = paste0(read_directions$conditions[[folder]]),
+                    conditions = conditions,
+                    date = date,
+                    project = project,
                     force = displacement_nm*nm2pn)
 
 
@@ -522,8 +524,9 @@ for(folder in seq_along(read_directions$folder)){
 
       forward_15 %<>% rbind(before_event) %>%
          mutate(is_positive = is_positive[[c]],
-                conditions = trap_selected_conditions,
-                date_folder_path = trap_selected_date,
+                conditions = conditions,
+                date = date,
+                project = project,
                 direction = 'forward') %>%
          arrange(ensemble_index)
 
@@ -600,8 +603,9 @@ for(folder in seq_along(read_directions$folder)){
 
      backwards_15 %<>% rbind(after_event) %>%
         mutate(is_positive = is_positive[[c]],
-               conditions = trap_selected_conditions,
-               date_folder_path = trap_selected_date,
+               conditions = conditions,
+               date = date,
+               project = project,
                direction = 'backwards') %>%
         arrange(ensemble_index)
 
@@ -641,10 +645,8 @@ for(folder in seq_along(read_directions$folder)){
       mutate(final_time_ons_ms = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE | better_time_on_dp <= 0,
                                         time_on_ms,
                                         better_time_on_ms),
-             date_folder_path = trap_selected_date) %>%
-      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
-      separate(need,  c('project', 'conditions2', 'date'), sep = '/') %>%
-      dplyr::select(project, conditions, date, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
+             analyzer = 'hm-model') %>%
+      dplyr::select(project, conditions, date, time_off_ms, final_time_ons_ms,  displacement_nm, force, analyzer) %>%
       rename("time_on_ms" = final_time_ons_ms)
 
 
@@ -652,7 +654,7 @@ for(folder in seq_along(read_directions$folder)){
    ## SAVE OUTPUT ##
    incProgress(detail = "Saving Events")
    measured_events_path <-  paste0(results_folder,
-                                   '/hm-model-measured-events.csv')
+                                   '/measured-events.csv')
 
    write_csv(measured_events, measured_events_path)
 
@@ -662,9 +664,6 @@ for(folder in seq_along(read_directions$folder)){
    backwards_ensemble_df <- bind_rows(backwards_ensemble_average_data)
 
    ensemble_avg_df <- rbind(forward_ensemble_df, backwards_ensemble_df) %>%
-      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
-      separate(need,  c('project', 'conditions', 'date'), sep = '/') %>%
-      dplyr::select(-path) %>%
       arrange(event)
 
    ensemble_avg_path <-  paste0(results_folder,
@@ -911,7 +910,9 @@ grid.arrange(mv1, mv2, nrow = 1)
                                     "_dygraph.R"),
                      output_file = paste0(results_folder,
                                           '/',
-                                          read_directions$conditions[[folder]],
+                                          date,
+                                          '_',
+                                          conditions,
                                           "_",
                                           read_directions$folder[[folder]],
                                           "_plots.html"),
@@ -926,11 +927,10 @@ grid.arrange(mv1, mv2, nrow = 1)
    #### EVENT FREQUENCY ####
 
    event_freq <- event_frequency(processed_data, rle_object, conversion) %>%
-      mutate(date_folder_path = trap_selected_date,
-             obs = read_directions$folder[[folder]]) %>%
-      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
-      separate(need,  c('project', 'conditions', 'date'), sep = '/') %>%
-      dplyr::select(-path)
+      mutate(project = project,
+             conditions = conditions,
+             date = date)
+
 
    write_csv(event_freq, paste0(results_folder,
                                 '/event-frequency.csv'))
@@ -940,7 +940,7 @@ grid.arrange(mv1, mv2, nrow = 1)
                       read_directions$folder[[folder]],
                       "with error: ",
                       as.character(e)), error_file)
-    cat("ERROR :",trap_selected_conditions, Message(e), "\n")
+    cat("ERROR :",  Message(e), "\n")
   })
 
 }
