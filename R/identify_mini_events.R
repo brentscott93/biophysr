@@ -13,6 +13,11 @@ identify_mini_events <- function(raw_data, run_mean){
 
   rle_object<- as_tibble(do.call("cbind", rle(on_off)))
 
+  #if starts in state2/event get rid of it
+  if(head(rle_object, 1)$values == 2){
+    rle_object %<>% slice(2:nrow(rle_object))
+  }
+
   #find initial event start/stop
   #If the rle_object's last row is in state 1, get rid of that last row. This needs to end in state 2 to capture the end of the last event
   mini_rle_object <- if(tail(rle_object, 1)$values == 1){

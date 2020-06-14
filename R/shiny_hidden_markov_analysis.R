@@ -11,6 +11,26 @@
 #' @examples
 shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_conditions, mv2nm, nm2pn, overlay_color, file_type, hm_emcontrol){
 
+   #for dev / troubleshooting
+   # trap_selected_date <- '/Users/brentscott/Box Sync/Muscle Biophysics Lab/Data/biophysr/bscott/trap/project_myoV/myoV-S217A_pH7.0_30mM-Pi/022719/observations'
+   # trap_selected_conditions <- 'myoV-S217A_pH7.0_30mM-Pi'
+   # mv2nm <-  34
+   # nm2pn <-  0.04
+   # overlay_color <-  'red'
+   # file_type <-  'txt'
+   # hm_emcontrol <- F
+
+  #could be useful to get all info at start to id all data with
+  #all info is in the file path
+  # split_data_path <-unlist(strsplit(trap_selected_date, split = '/trap/'))[2]
+  #
+  # split_again <- unlist(strsplit(split_data_path, split = '/'))
+  #
+  # project <- split_again[[1]]
+  # conditions <- split_again[[2]]
+  # date <- split_again[[3]]
+  #
+
   withProgress(message = 'HMM Analysis in Progress', value = 0, max = 1, min = 0, {
     incProgress(amount = .01, detail = "Reading Data")
 
@@ -31,37 +51,37 @@ shiny_hidden_markov_analysis <- function(trap_selected_date, trap_selected_condi
     read_directions <- suppressMessages(read_csv(directions)) %>%
       mutate(folder = observation_folders,
              grouped_file = grouped4r_files,
-             condition = trap_selected_conditions)%>%
+             conditions = trap_selected_conditions,
+             baseline_start_sec = as.numeric(baseline_start_sec)*5000,
+             baseline_stop_sec = as.numeric(baseline_stop_sec)*5000) %>%
       filter(include == "yes")
 
     } else {
       read_directions <- suppressMessages(read_csv(directions)) %>%
         mutate(folder = observation_folders,
                grouped_file = grouped4r_files,
-               condition = trap_selected_conditions) %>%
+               conditions = trap_selected_conditions,
+               baseline_start_sec = as.numeric(baseline_start_sec)*5000,
+               baseline_stop_sec = as.numeric(baseline_stop_sec)*5000) %>%
         filter(include == "yes")
-
-
     }
 
-    read_directions$baseline_start_sec <- as.numeric(read_directions$baseline_start_sec)
-    read_directions$baseline_start_sec <- read_directions$baseline_start_sec*5000
 
-    read_directions$baseline_stop_sec <- as.numeric(read_directions$baseline_stop_sec)
-    read_directions$baseline_stop_sec <- read_directions$baseline_stop_sec*5000
 
     #create results folders for output on dropbox
-    results_folder <- paste0(trap_selected_date, "/results")
-    dir.create(results_folder)
-    events_folder <- paste0(trap_selected_date, "/results/events")
-    dir.create(events_folder)
-    plots_folder <- paste0(trap_selected_date, "/results/plots")
-    dir.create(plots_folder)
-    model_folder <- paste0(trap_selected_date, "/results/model_summary")
-    dir.create(model_folder)
-    ensemble_folder <- paste0(trap_selected_date, "/results/ensemble")
-    dir.create(ensemble_folder)
 
+    # results_folder <- paste0(trap_selected_date, "/results")
+    # dir.create(results_folder)
+    # events_folder <- paste0(trap_selected_date, "/results/events")
+    # dir.create(events_folder)
+    # plots_folder <- paste0(trap_selected_date, "/results/plots")
+    # dir.create(plots_folder)
+    # model_folder <- paste0(trap_selected_date, "/results/hm-model-summary")
+    # dir.create(model_folder)
+    # ensemble_folder <- paste0(trap_selected_date, "/results/ensemble-avg")
+    # dir.create(ensemble_folder)
+    # freq_folder <- paste0(trap_selected_date, "/results/event-frequency")
+    # dir.create(freq_folder)
 
 hmm_initial_parameters <- c(0.98, 0.02,        #Initial state probabilities
                             0.98, 0.02,         #transition probs s1 to s1/s2. These are guesses knowing they are stable states
@@ -74,14 +94,19 @@ hmm_initial_parameters <- c(0.98, 0.02,        #Initial state probabilities
 ## LOAD IN DATA ##
 report <- vector("list")
 var_signal_to_noise <- vector("list")
-error_file <- file(paste0(trap_selected_date, "/error_log.txt"), open = "a")
+error_file <- file(paste0(trap_selected_date, "/error-log.txt"), open = "a")
 var_signal_to_noise_directions <- vector("list")
 
 #loop will start here
 for(folder in seq_along(read_directions$folder)){
   tryCatch({
+
+
+   results_folder <- paste0(trap_selected_date, '/', read_directions$folder[[folder]], '/results')
+   dir.create(results_folder)
+
     inc_prog_bar <-  nrow(read_directions)*4
-    setProgress(1/inc_prog_bar, paste("Analyzing", read_directions$condition[[folder]], read_directions$folder[[folder]]))
+    setProgress(1/inc_prog_bar, paste("Analyzing", read_directions$conditions[[folder]], read_directions$folder[[folder]]))
 
 
 
@@ -123,20 +148,21 @@ for(folder in seq_along(read_directions$folder)){
 
    }
 
-   ## RUNNING MEAN & VAR ##
+   #### RUNNING MEAN & VAR ####
    w_width <- 150
    incProgress(detail = "Calculating Running Mean")
-   run_mean <- running(processed_data, fun = mean, width = w_width, by = w_width/2)
+   run_mean <- na.omit(RcppRoll::roll_meanl(processed_data, n = w_width, by = w_width/2))
 
 
    incProgress(detail = "Calculating Running Variance")
-   run_var <- running(processed_data, fun = var, width = w_width, by = w_width/2)
+   run_var <- na.omit(RcppRoll::roll_varl(processed_data, n = w_width, by = w_width/2))
+
 
 
    running_table <- tibble(run_mean = run_mean,
                            run_var = run_var)
 
-   ## HMM ##
+   #### HMM ####
 
    report[[folder]]  <- paste0("failed_HMM!_", read_directions$folder[[folder]])
 
@@ -159,7 +185,7 @@ for(folder in seq_along(read_directions$folder)){
    sd_run_var <- sd(run_var)
 
    if(hm_emcontrol == T){
-      hmm_fit <- depmixS4::fit(hmm, emcontrol = em.control(random.start = TRUE))
+      hmm_fit <- depmixS4::fit(hmm, emcontrol = depmixS4::em.control(random.start = TRUE))
    } else {
       estimate_hmm_gaussians <- c(mean_run_var, sd_run_var, 0, sd_run_mean,
                                   mean_run_var/2, sd_run_var, 2, sd_run_mean*2)
@@ -211,15 +237,9 @@ for(folder in seq_along(read_directions$folder)){
 
 
 
-    hmm_file <- file(paste0(trap_selected_date,
-                           "/results/model_summary/",
-                           read_directions$condition[[folder]],
-                           "_",
-                           read_directions$folder[[folder]],
-                           "_",
-                           "model.txt"),
+    hmm_file <- file(paste0(results_folder,
+                           "/hm-model.txt"),
                     open =  "a")
-
    capture.output(depmixS4::summary(hmm_fit), file = hmm_file)
    close(hmm_file)
 
@@ -245,7 +265,7 @@ for(folder in seq_along(read_directions$folder)){
                              c("1-1", "1-2", "2-1", "2-2"))
 
    count_events <- as.data.frame(counter, row.names = "#_transitions", make.names = TRUE) %>%
-      mutate(condition = paste0( read_directions$condition[[folder]]))
+      mutate(conditions = paste0( read_directions$conditions[[folder]]))
 
 
 
@@ -403,22 +423,36 @@ for(folder in seq_along(read_directions$folder)){
    #add step sizes and forces to the on_off_times table
    measured_events <- on_off_times %>%
       dplyr::mutate(displacement_nm = direction_correction,
-                    condition = paste0(read_directions$condition[[folder]]),
+                    conditions = paste0(read_directions$conditions[[folder]]),
                     force = displacement_nm*nm2pn)
 
 
 
    #find better time on
 
-   forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1.75)*conversion),
-                              s2_end = ceiling(regroup_data$state_2_end*conversion))
+   #played around with the numbers of where to 'chunk' out the data
+   #art of balancing just the right amount of data to capture the transition
+   #without getting too much to increase change of wrong changepoint being detected
+   #sometimes it seemed if event has a noisy spot the event start/end was detected
+   #resulting in negative time ons or poor time on estimates
+   forward_data <- tibble(s1_end = floor((regroup_data$state_1_end - 1.5)*conversion),
+                          s2_end = ceiling((regroup_data$state_1_end + 1)*conversion))
 
-   backwards_data <- tibble(s1_end = floor(regroup_data$state_1_end*conversion),
-                          s2_end = ceiling((regroup_data$state_2_end + 1.75)*conversion))
+   backwards_data <- tibble(s2_end = floor((regroup_data$state_2_end - 0.5)*conversion),
+                          s1_start = ceiling((regroup_data$state_2_end + 1.5)*conversion))
 
-  # flip_raw_run_mean <- rollmean(as.vector(flip_raw), k = 50, align = "left")
+
+   # event_length <- regroup_data %>%
+   #    mutate(event_length = (state_2_end - state_1_end) * round(conversion))
+
+
    processed_data_tibble <- tibble(data = as.vector(flip_raw),
                                    index = seq(1, length(flip_raw), length.out = length(flip_raw)))
+
+   #run_var_ensemble <-  running(processed_data_tibble$data, fun = var, width = 50, align = "left")
+   #RcppRoll waaay faster
+   run_var_ensemble <- tibble(run_var_50 = na.omit(RcppRoll::roll_varl(processed_data_tibble$data, n = 50)),
+                              index = 1:length(run_var_50))
 
    did_it_flip <- negative_events > positive_events
    is_positive <- calculate_mean_differences$diff > 0
@@ -426,116 +460,74 @@ for(folder in seq_along(read_directions$folder)){
       is_positive <- ifelse(is_positive == TRUE, FALSE, TRUE)
    }
 
-   ensemble_length <- 300 #data points, 60ms, 0.06 seconds
+   #due to sliding windows there is a dead time of 15ms
+   #so we can use that as our ensemble length and just take the first 75 datapoints (15 ms)
+   #of each event to have equal length event. only maybe 1 running window long window events may have some
+   #non-event data, but these events should be rare and will be averaged out.
+   ensemble_length <- 75 #data points, 15ms, 0.015 seconds
    better_time_on_starts <- vector()
    forward_ensemble_average_data <- vector("list")
    ensemble_keep1 <- vector()
    for(c in 1:nrow(forward_data)){
-      print(c)
+      #get event data chunk
      forward_chunk <- processed_data_tibble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
-
+     ensemble_chunk <- run_var_ensemble[forward_data$s1_end[[c]] : forward_data$s2_end[[c]],]
+     #if chunk has na values skip
+     #this should be rare
+     #mostly if the last event does not have enough state1 data after it
+     #doing this helped avoid errors
      has_na <- table(is.na(forward_chunk$data))
-
      if(length(has_na) > 1){
        better_time_on_starts[[c]] <- NA
        ensemble_keep1[[c]] <- FALSE
-
        next
-
      }
 
-      if(nrow(forward_chunk) > 3000){
-         forward_chunk %<>%
-            slice(1:3000)
-      }
-
-      run_var_chunk <- running(forward_chunk$data, fun = var, width = 50, align = "left")
-      chunk_length <- length(run_var_chunk)*0.7
-      run_var_chunk <- run_var_chunk[1:(chunk_length)]
-
-
-      forward_cpt_obj <- cpt.mean(run_var_chunk, method = "AMOC")
-      forward_chunk %<>%
-         #mutate(data = smth.gaussian(forward_chunk$data, window = 50)) %>%
-        slice(1:chunk_length)
-
+      forward_cpt_obj <- changepoint::cpt.mean(ensemble_chunk$run_var_50, method = "AMOC")
       event_on <- cpts(forward_cpt_obj)
 
+      #visualize the changepoint on raw data and running var
+       # a <- ggplot()+
+       #   geom_line(aes(x = 1:nrow(forward_chunk), y = forward_chunk$data), color = 'gold')+
+       #    geom_vline(aes(xintercept = event_on))+
+       #    theme_dark()
+       #
+       # b <- ggplot()+
+       #   geom_point(aes(x = 1:nrow(ensemble_chunk), y = ensemble_chunk$run_var_50), color = 'red')+
+       #    geom_vline(aes(xintercept = event_on))
+       #
+       # gridExtra::grid.arrange(a, b)
+
+      #if no changepoint id'd skip
      if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
-
-       forward_chunk <- processed_data_tibble[(forward_data$s1_end[[c]] - (1.5*w_width)): forward_data$s2_end[[c]],]
-
-       if(nrow(forward_chunk) > 3000){
-          forward_chunk %<>%
-             slice(1:3000)
-       }
-
-       run_var_chunk <- running(forward_chunk$data, fun = var, width = 50, align = "left")
-       chunk_length <- length(run_var_chunk)*0.7
-       run_var_chunk <- run_var_chunk[1:(chunk_length)]
-
-       forward_cpt_obj <- cpt.mean(run_var_chunk, method = "AMOC")
-
-       forward_chunk %<>%
-          #mutate(data = smth.gaussian(forward_chunk$data, window = 50)) %>%
-         slice(1:chunk_length)
-
-       event_on <- cpts(forward_cpt_obj)
-
-     }
-
-     if(identical(cpts(forward_cpt_obj), numeric(0)) == TRUE){
-
         better_time_on_starts[[c]] <- NA
         ensemble_keep1[[c]] <- FALSE
-
         next
-
      } else {
-
-       better_time_on_starts[[c]] <- forward_chunk$index[event_on]
+      #or record change point index
+       cp_start <- forward_chunk$index[event_on]
+       better_time_on_starts[[c]] <- cp_start
        ensemble_keep1[[c]] <- TRUE
-
      }
 
-       start_ensemble <- 1 - event_on
+      #take first 15ms of event starting from the newly found start of event
+      forward_15 <- tibble(data = processed_data_tibble$data[ cp_start : (cp_start + 74) ],
+                           ensemble_index = 0:(length(data)-1),
+                           event = c)
 
-       forward_chunk %<>%
-         mutate(forward_index = seq(start_ensemble, by = 1, length.out = nrow(forward_chunk)),
-                event = c)
+      before_event <- tibble(data = processed_data_tibble$data[ (cp_start - 75) : (cp_start - 1) ],
+                             ensemble_index = -length(data):-1,
+                             event = c)
 
 
-      filter_forward_chunk <- forward_chunk %>%
-                                dplyr::filter(forward_index >= 0) %>%
-                                dplyr::select(-index)
-
-       if(nrow(filter_forward_chunk) < ensemble_length){
-         mean_data <- ceiling(length(filter_forward_chunk$data)*.95)
-         diff_length <- length(filter_forward_chunk$data) -  mean_data
-         mean_chunk <- mean(filter_forward_chunk$data[diff_length : length(filter_forward_chunk$data) ])
-
-         rep_num <- 300 - nrow(filter_forward_chunk)
-         forward_extension <- rep(mean_chunk, rep_num)
-         forward_60ms <- tibble(data = c(filter_forward_chunk$data, forward_extension),
-                                    forward_index = 0:299,
-                                    event = c)
-
-       } else {
-
-         forward_60ms <- filter_forward_chunk %>% slice(1:300)
-      }
-
-      before_event <-  forward_chunk %>%
-        dplyr::filter(forward_index < 0) %>%
-        dplyr::select(-index)
-
-      forward_60ms %<>% rbind(before_event) %>%
+      forward_15 %<>% rbind(before_event) %>%
          mutate(is_positive = is_positive[[c]],
                 conditions = trap_selected_conditions,
-                date = trap_selected_date) %>%
-         arrange(forward_index)
+                date_folder_path = trap_selected_date,
+                direction = 'forward') %>%
+         arrange(ensemble_index)
 
-      forward_ensemble_average_data[[c]] <- forward_60ms
+      forward_ensemble_average_data[[c]] <- forward_15
      }
 
 
@@ -544,65 +536,40 @@ for(folder in seq_along(read_directions$folder)){
    backwards_ensemble_average_data <- vector("list")
    ensemble_keep2 <- vector()
    for(c in 1:nrow(backwards_data)){
-    try({
-    print(c)
-     backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]] : backwards_data$s2_end[[c]],]
+
+     backwards_chunk <- processed_data_tibble[backwards_data$s2_end[[c]] : backwards_data$s1_start[[c]],]
+     back_ensemble_chunk <- run_var_ensemble[backwards_data$s2_end[[c]] : backwards_data$s1_start[[c]],]
 
      has_na <- table(is.na(backwards_chunk$data))
-
-    if(length(has_na) > 0){
-      better_time_on_stops[[c]] <- NA
-      ensemble_keep2[[c]] <- FALSE
-
-      next
-
-    }
-
-
-
-     if(nrow(backwards_chunk) > 3000){
-        lb <- nrow(backwards_chunk)
-        backwards_chunk %<>%
-           slice((lb-3000):lb)
+     if(length(has_na) > 1){
+         better_time_on_stops[[c]] <- NA
+         ensemble_keep2[[c]] <- FALSE
+         next
      }
 
-     bward_run_var_chunk <- running(backwards_chunk$data, fun = var, width = 50, align = "right", allow.fewer = F, pad = T)
-     bward_chunk_length <- length(bward_run_var_chunk)
-     bward_run_var_chunk <- bward_run_var_chunk[(bward_chunk_length*0.3):bward_chunk_length]
+     #the first 49 values are NA in the running variance because 50 values are needed to calculate a window
+     #remove the first 49 to do changepoint
+     backwards_cpt_obj <- cpt.mean(back_ensemble_chunk$run_var_50, method = "AMOC")
 
-
-     backwards_cpt_obj <- cpt.mean(bward_run_var_chunk, method = "AMOC")
-     backwards_chunk %<>%
-        #mutate(data = smth.gaussian(backwards_chunk$data, window = 50)) %>%
-       slice((bward_chunk_length * 0.3):bward_chunk_length)
+     #the changepoint index can be extracted
+     #but add the number of missing values back to it get the proper index
+     #back from the original chunk
      event_off <- cpts(backwards_cpt_obj)
 
-
-     if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
-      #  if(is_positive[[c]] == TRUE){
-
-         backwards_chunk <- processed_data_tibble[backwards_data$s1_end[[c]]: (backwards_data$s2_end[[c]] + (1.5*w_width)),]
-
-
-         if(nrow(backwards_chunk) > 3000){
-            lb <- nrow(backwards_chunk)
-            backwards_chunk %<>%
-               slice((lb-3000):lb)
-         }
-
-         bward_run_var_chunk <- running(backwards_chunk$data, fun = var, width = 50, align = "right", allow.fewer = F, pad = T)
-         bward_chunk_length <- length(bward_run_var_chunk)
-         bward_run_var_chunk <- bward_run_var_chunk[(bward_chunk_length*0.3):bward_chunk_length]
+     #check it out with a plot
+     # y <- ggplot()+
+     #    geom_line(aes(x = 1:nrow(backwards_chunk), y = backwards_chunk$data), color = 'gold')+
+     #    geom_vline(aes(xintercept = event_off))+
+     #    theme_dark()
+     #
+     # z <- ggplot()+
+     #    geom_point(aes(x = 1:length(back_ensemble_chunk$run_var_50), y = back_ensemble_chunk$run_var_50), color = 'red')+
+     #    geom_vline(aes(xintercept = event_off))
+     #
+     # gridExtra::grid.arrange(y, z)
 
 
-         backwards_cpt_obj <- cpt.mean(bward_run_var_chunk, method = "AMOC")
-         backwards_chunk %<>%
-            #mutate(data = smth.gaussian(backwards_chunk$data, window = 50)) %>%
-            slice((bward_chunk_length * 0.3):bward_chunk_length)
-         event_off <- cpts(backwards_cpt_obj)
-
-     }
-
+     #if no changepoint is found for a second time skip
      if(identical(cpts(backwards_cpt_obj), numeric(0)) == TRUE){
         better_time_on_stops[[c]] <- NA
         ensemble_keep2[[c]] <- FALSE
@@ -611,48 +578,35 @@ for(folder in seq_along(read_directions$folder)){
 
      } else {
 
-     better_time_on_stops[[c]] <- backwards_chunk$index[event_off]
-     ensemble_keep2[[c]] <- TRUE
+     #or record the index where this occurred in the previous attempt
+        cp_off <- backwards_chunk$index[event_off]
+        better_time_on_stops[[c]] <- cp_off
+        ensemble_keep2[[c]] <- TRUE
 
      }
 
-     start_backward_ensemble <- 1 - event_off
-     backwards_chunk %<>%
-       mutate(backward_index = seq(start_backward_ensemble, by = 1, length.out = nrow(backwards_chunk)),
-              event = c)
+     #take last 15ms of event starting from the newly found start of event
+     #start indexing at 75 so we can eventually rbind forward and backwards and have a
+     #0-149 indexed trace lining up 2 - 15ms forward and backward ensembles
+
+     backwards_15 <- tibble(data = processed_data_tibble$data[ (cp_off-74) : cp_off ],
+                          ensemble_index = 75:(length(data)+74),
+                          event = c)
 
 
-     filter_backwards_chunk <- backwards_chunk %>%
-       dplyr::filter(backward_index <= 0) %>%
-       dplyr::select(-index)
+     after_event <- tibble(data = processed_data_tibble$data[ (cp_off + 1) : (cp_off + 75) ],
+                            ensemble_index = 150:(length(data)+149),
+                            event = c)
 
-     if(nrow(filter_backwards_chunk) < ensemble_length){
-
-       mean_back_chunk <- mean(filter_backwards_chunk$data[1:(nrow( filter_backwards_chunk)*0.95)])
-
-       rep_num2 <- 300 - nrow(filter_backwards_chunk)
-       backward_extension <- rep(mean_back_chunk, rep_num2)
-       backward_60ms <- tibble(data = c(backward_extension, filter_backwards_chunk$data),
-                               backward_index = -299:0,
-                               event = c)
-
-     } else {
-
-       backward_60ms <- filter_backwards_chunk %>%
-         dplyr::filter(backward_index <= 0 & backward_index >= -299)
-     }
-
-     after_event <-  backwards_chunk %>%
-       dplyr::filter(backward_index > 0) %>%
-       dplyr::select(-index)
-
-     backward_60ms %<>% rbind(after_event) %>%
+     backwards_15 %<>% rbind(after_event) %>%
         mutate(is_positive = is_positive[[c]],
                conditions = trap_selected_conditions,
-               date = trap_selected_date)
+               date_folder_path = trap_selected_date,
+               direction = 'backwards') %>%
+        arrange(ensemble_index)
 
-     backwards_ensemble_average_data[[c]] <- backward_60ms
-   })
+     backwards_ensemble_average_data[[c]] <- backwards_15
+
    }
 
 
@@ -686,66 +640,37 @@ for(folder in seq_along(read_directions$folder)){
    measured_events %<>% full_join(better_time_on) %>%
       mutate(final_time_ons_ms = ifelse(is.na(start) == TRUE | is.na(stop) == TRUE | better_time_on_dp <= 0,
                                         time_on_ms,
-                                        better_time_on_ms)) %>%
-      dplyr::select(condition, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
+                                        better_time_on_ms),
+             date_folder_path = trap_selected_date) %>%
+      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
+      separate(need,  c('project', 'conditions2', 'date'), sep = '/') %>%
+      dplyr::select(project, conditions, date, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
       rename("time_on_ms" = final_time_ons_ms)
 
-   #######better step sizes###########
-   #loop over regrouped data to find the mean of the events displacements
-  # better_step <- vector() #allocate space for output storage of loop
-   #for(i in 1:nrow(measured_events)){
-    #  if(is.na(measured_events$start[[i]]) == T | is.na(measured_events$stop[[i]]) == T){
-     #    better_step[[i]] <- measured_events$displacement_nm[[i]]
-#      } else {
- #        e_start <- measured_events$start[[i]]
-  #       e_stop <- measured_events$stop[[i]]
-   #      l_event <- length(e_start:e_stop)*0.05/2 #get length of event in data points, get 5% of that, and divide by 2 to subtract/add
-    #     e_start %<>% sum(l_event)
-     #    e_stop <- e_stop - l_event
-      #   event_chunk <- processed_data_tibble %>% slice(e_start:e_stop)
-       #  better_step[[i]] <- mean(event_chunk$data)
-#      }
 
-#   }
-
-
-   # final selectionsdplyr::select(condition, time_off_ms, final_time_ons_ms,  displacement_nm, force) %>%
 
    ## SAVE OUTPUT ##
    incProgress(detail = "Saving Events")
-   measured_events_path <-  paste0(trap_selected_date,
-                                   "/results/events/",
-                                   read_directions$condition[[folder]],
-                                   "_",
-                                   read_directions$folder[[folder]],
-                                   "_hmm_events.csv")
+   measured_events_path <-  paste0(results_folder,
+                                   '/hm-model-measured-events.csv')
 
    write_csv(measured_events, measured_events_path)
 
    #save ensemble data
    forward_ensemble_df <- bind_rows(forward_ensemble_average_data)
 
-   forward_ensemble_path <-  paste0(trap_selected_date,
-                                   "/results/ensemble/",
-                                   read_directions$condition[[folder]],
-                                   "_",
-                                   read_directions$folder[[folder]],
-                                   "_forward_ensemble_data.csv")
-
-   write_csv(forward_ensemble_df, forward_ensemble_path)
-
-   #backwards
-
    backwards_ensemble_df <- bind_rows(backwards_ensemble_average_data)
 
-   backwards_ensemble_path <-  paste0(trap_selected_date,
-                                    "/results/ensemble/",
-                                    read_directions$condition[[folder]],
-                                    "_",
-                                    read_directions$folder[[folder]],
-                                    "_backwards_ensemble_data.csv")
+   ensemble_avg_df <- rbind(forward_ensemble_df, backwards_ensemble_df) %>%
+      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
+      separate(need,  c('project', 'conditions', 'date'), sep = '/') %>%
+      dplyr::select(-path) %>%
+      arrange(event)
 
-   write_csv(backwards_ensemble_df, backwards_ensemble_path)
+   ensemble_avg_path <-  paste0(results_folder,
+                                '/ensemble-average.csv')
+
+   write_csv(ensemble_avg_df, ensemble_avg_path)
 
    #makae hmm overlay for dygraph
    #dp2plot <- 10*5000
@@ -788,7 +713,7 @@ for(folder in seq_along(read_directions$folder)){
    #save data for dygraph
 
 
-   temp_dir <-  chartr("\\", "/", paste0(tempdir(), "/", squysh_time(),"_", read_directions$condition[[folder]], "_", read_directions$folder[[folder]]))
+   temp_dir <-  chartr("\\", "/", paste0(tempdir(), "/", squysh_time(),"_", read_directions$conditions[[folder]], "_", read_directions$folder[[folder]]))
 
    dir.create(temp_dir)
 
@@ -956,7 +881,7 @@ grid.arrange(mv1, mv2, nrow = 1)
   "),
       paste0(temp_dir,
              "/",
-             read_directions$condition[[folder]],
+             read_directions$conditions[[folder]],
              "_",
              read_directions$folder[[folder]],
              "_dygraph.R")
@@ -980,13 +905,13 @@ grid.arrange(mv1, mv2, nrow = 1)
 
    rmarkdown::render(input = paste0(temp_dir,
                                     "/",
-                                    read_directions$condition[[folder]],
+                                    read_directions$conditions[[folder]],
                                     "_",
                                     read_directions$folder[[folder]],
                                     "_dygraph.R"),
-                     output_file = paste0(trap_selected_date,
-                                          "/results/plots/",
-                                          read_directions$condition[[folder]],
+                     output_file = paste0(results_folder,
+                                          '/',
+                                          read_directions$conditions[[folder]],
                                           "_",
                                           read_directions$folder[[folder]],
                                           "_plots.html"),
@@ -998,15 +923,24 @@ grid.arrange(mv1, mv2, nrow = 1)
 
 
 
+   #### EVENT FREQUENCY ####
 
+   event_freq <- event_frequency(processed_data, rle_object, conversion) %>%
+      mutate(date_folder_path = trap_selected_date,
+             obs = read_directions$folder[[folder]]) %>%
+      separate(date_folder_path, c('path', 'need'), sep = '/trap/') %>%
+      separate(need,  c('project', 'conditions', 'date'), sep = '/') %>%
+      dplyr::select(-path)
 
+   write_csv(event_freq, paste0(results_folder,
+                                '/event-frequency.csv'))
 
   }, error=function(e){
     writeLines(paste0("Analysis error in ",
                       read_directions$folder[[folder]],
                       "with error: ",
                       as.character(e)), error_file)
-    cat("ERROR :",conditionMessage(e), "\n")
+    cat("ERROR :",trap_selected_conditions, Message(e), "\n")
   })
 
 }

@@ -1,4 +1,5 @@
-#' Mini Ensemble analyzer for shiny
+
+#' Mini-ensemble Analyzer
 #'
 #' @param trap_selected_date
 #' @param trap_selected_conditions
@@ -113,6 +114,11 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, trap_selected_condi
 
         rle_object<- as_tibble(do.call("cbind", rle(on_off)))
 
+        #if starts in state2/event get rid of it
+        if(head(rle_object, 1)$values == 2){
+          rle_object %<>% slice(2:nrow(rle_object))
+        }
+
         #find initial event start/stop
         #If the rle_object's last row is in state 1, get rid of that last row. This needs to end in state 2 to capture the end of the last event
         mini_rle_object <- if(tail(rle_object, 1)$values == 1){
@@ -193,9 +199,9 @@ shiny_mini_ensemble_analyzer <- function(trap_selected_date, trap_selected_condi
         for(i in 1:nrow(rescaled_events)){
           temp_df <- run_mean_rescaled[(rescaled_events$state_1_end[i] + 1) : (rescaled_events$state_2_end[i]),]
 
-          find_event_peak <- max(find_peaks(temp_df$run_mean, m = length(temp_df$run_mean)))
+          find_event_peak <- max(temp_df$run_mean)
 
-          peak_displacement_df[[i]] <- temp_df[find_event_peak,]
+          peak_displacement_df[[i]] <- temp_df[which(temp_df$run_mean == find_event_peak),]
 
         }
 

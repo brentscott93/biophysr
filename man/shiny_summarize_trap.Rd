@@ -4,7 +4,7 @@
 \alias{shiny_summarize_trap}
 \title{Summarize trap project (shiny app)}
 \usage{
-shiny_summarize_trap(trap_selected_project, analyzer, file_type)
+shiny_summarize_trap(trap_selected_project, file_type)
 }
 \arguments{
 \item{file_type}{}

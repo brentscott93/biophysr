@@ -169,9 +169,9 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
     for(r in 1:nrow(diff_tibble2)){
 
       if(r < 10){
-        dir.create(paste0(trap_selected_date, "/obs_0", r))
+        dir.create(paste0(trap_selected_date, "/obs-0", r))
       } else {
-        dir.create(paste0(trap_selected_date,"/obs_", r))
+        dir.create(paste0(trap_selected_date,"/obs-", r))
       }
       obs_file_names[[r]] <- file_tibble$name[diff_tibble2$index[[r]]:diff_tibble2$index1[[r]]]
     }
@@ -183,10 +183,10 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
       for(file in seq_along(obs_file_names[[o]])){
         if(o < 10){
           file.rename(from =  paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to = paste0(trap_selected_date, "/obs_0", o, "/", obs_file_names[[o]][[file]]))
+                      to = paste0(trap_selected_date, "/obs-0", o, "/", obs_file_names[[o]][[file]]))
         } else {
           file.rename(from = paste0(trap_selected_date, "/", obs_file_names[[o]][[file]]),
-                      to = paste0(trap_selected_date, "/obs_", o, "/", obs_file_names[[o]][[file]]))
+                      to = paste0(trap_selected_date, "/obs-", o, "/", obs_file_names[[o]][[file]]))
         }
       }}
 
@@ -203,13 +203,13 @@ shiny_make_trap_observations <- function(input_data, trap_selected_date, thresho
       if(c < 10){
 
        temp_grouped <-  write_csv(create_obs[[c]],
-                                  path = paste0(trap_selected_date, "/obs_0", c, "/grouped.csv"),
+                                  path = paste0(trap_selected_date, "/obs-0", c, "/grouped.csv"),
                                   col_names = TRUE)
 
       } else {
 
         temp_grouped <-  write_csv(create_obs[[c]],
-                                   path = paste0(trap_selected_date, "/obs_", c, "/grouped.csv"),
+                                   path = paste0(trap_selected_date, "/obs-", c, "/grouped.csv"),
                                    col_names = TRUE)
 
       }
