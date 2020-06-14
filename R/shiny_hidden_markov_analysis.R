@@ -880,10 +880,12 @@ grid.arrange(mv1, mv2, nrow = 1)
   "),
       paste0(temp_dir,
              "/",
-             read_directions$conditions[[folder]],
+             date,
+             '_',
+             conditions,
              "_",
              read_directions$folder[[folder]],
-             "_dygraph.R")
+             "_plots.R")
 
    )
 
@@ -902,12 +904,15 @@ grid.arrange(mv1, mv2, nrow = 1)
    #rendered <- chartr("\\", "/", rendered)
 
 
-   rmarkdown::render(input = paste0(temp_dir,
+   rmarkdown::render(input = paste0(
+                                    temp_dir,
                                     "/",
-                                    read_directions$conditions[[folder]],
+                                    date,
+                                    '_',
+                                    conditions,
                                     "_",
                                     read_directions$folder[[folder]],
-                                    "_dygraph.R"),
+                                    "_plots.R"),
                      output_file = paste0(results_folder,
                                           '/',
                                           date,

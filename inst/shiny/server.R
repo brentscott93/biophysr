@@ -836,7 +836,7 @@ rv <- reactiveValues()
 
     #get dygraph names and path locations
     trap_dygraphs <- eventReactive(input$get_quality_check_data_actionButton, {
-        tibble(file_path = list.files(path = trap_selected_date()$path), 'plots.html', full.names = T)
+        tibble(file_path = list.files(path = trap_selected_date()$path, 'plots.html', full.names = T, recursive = T))
     })
 
     # make select input button with dygraph names
@@ -862,7 +862,8 @@ rv <- reactiveValues()
     analysis_report_source <- eventReactive(input$show_quality_check_graph_actionButton, {
       full_path <- list.files(trap_selected_date()$path,
                               pattern = input$trap_quality_check_obs_selectInput,
-                              full.names = T)
+                              full.names = T,
+                              recursive = T)
       path <- unlist(strsplit(full_path, '/trap/'))
       paste0("user/trap/", path[[2]])
              # input$trap_project_selectInput,
