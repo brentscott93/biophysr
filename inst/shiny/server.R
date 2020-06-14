@@ -836,22 +836,22 @@ rv <- reactiveValues()
 
     #get dygraph names and path locations
     trap_dygraphs <- eventReactive(input$get_quality_check_data_actionButton, {
-        list_files(paste0(trap_selected_date()$path, "/results/plots"))
+        tibble(file_path = list.files(path = trap_selected_date()$path), 'plots.html', full.names = T)
     })
 
     # make select input button with dygraph names
     output$trap_quality_check_obs <- renderUI({
         req(input$trap_date_selectInput)
         req(input$trap_date_selectInput != "create")
-
-        selectInput('trap_quality_check_obs_selectInput', label = 'Select obs to review', c(Choose = '', trap_dygraphs()$name), selectize = TRUE)
+        files <- unlist(strsplit(trap_dygraphs()$file_path, '/'))
+        selectInput('trap_quality_check_obs_selectInput', label = 'Select obs to review', c(Choose = '', files[length(files)]), selectize = TRUE)
     })
 
     # selected dygraph for quality check
     trap_selected_quality_check <-  reactive({
 
         trap_dygraphs() %>%
-            filter(name == input$trap_quality_check_obs_selectInput)
+            filter(str_detect(file_path, input$trap_quality_check_obs_selectInput))
     })
 
 
@@ -860,16 +860,19 @@ rv <- reactiveValues()
     })
 
     analysis_report_source <- eventReactive(input$show_quality_check_graph_actionButton, {
-
-      paste0("user/trap/",
-             input$trap_project_selectInput,
-             "/",
-             input$trap_conditions_selectInput,
-             "/",
-             input$trap_date_selectInput,
-             "/",
-             "results/plots/",
-             input$trap_quality_check_obs_selectInput)
+      full_path <- list.files(trap_selected_date()$path,
+                              pattern = input$trap_quality_check_obs_selectInput,
+                              full.names = T)
+      path <- unlist(strsplit(full_path, '/trap/'))
+      paste0("user/trap/", path[[2]])
+             # input$trap_project_selectInput,
+             # "/",
+             # input$trap_conditions_selectInput,
+             # "/",
+             # input$trap_date_selectInput,
+             # "/",
+             # "results/plots/",
+             # input$trap_quality_check_obs_selectInput)
 
     })
 
