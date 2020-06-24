@@ -843,8 +843,8 @@ rv <- reactiveValues()
     output$trap_quality_check_obs <- renderUI({
         req(input$trap_date_selectInput)
         req(input$trap_date_selectInput != "create")
-        files <- unlist(strsplit(trap_dygraphs()$file_path, '/'))
-        selectInput('trap_quality_check_obs_selectInput', label = 'Select obs to review', c(Choose = '', files[length(files)]), selectize = TRUE)
+        files <- map_chr(trap_dygraphs()$file_path, ~tail(unlist(strsplit(., '/')), 1))
+        selectInput('trap_quality_check_obs_selectInput', label = 'Select obs to review', c(Choose = '', files), selectize = TRUE)
     })
 
     # selected dygraph for quality check

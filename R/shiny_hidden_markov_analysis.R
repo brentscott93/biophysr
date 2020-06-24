@@ -479,7 +479,8 @@ for(folder in seq_along(read_directions$folder)){
      #mostly if the last event does not have enough state1 data after it
      #doing this helped avoid errors
      has_na <- table(is.na(forward_chunk$data))
-     if(length(has_na) > 1){
+     has_na2 <- table(is.na(ensemble_chunk$run_var_50))
+     if(length(has_na) > 1 | length(has_na2) > 1){
        better_time_on_starts[[c]] <- NA
        ensemble_keep1[[c]] <- FALSE
        next
@@ -544,7 +545,8 @@ for(folder in seq_along(read_directions$folder)){
      back_ensemble_chunk <- run_var_ensemble[backwards_data$s2_end[[c]] : backwards_data$s1_start[[c]],]
 
      has_na <- table(is.na(backwards_chunk$data))
-     if(length(has_na) > 1){
+     has_na2 <- table(is.na(back_ensemble_chunk$run_var_50))
+     if(length(has_na) > 1 | length(has_na2) > 1){
          better_time_on_stops[[c]] <- NA
          ensemble_keep2[[c]] <- FALSE
          next
@@ -942,10 +944,13 @@ grid.arrange(mv1, mv2, nrow = 1)
 
   }, error=function(e){
     writeLines(paste0("Analysis error in ",
+                      date,
+                      " ",
+                      conditions,
+                      " ",
                       read_directions$folder[[folder]],
-                      "with error: ",
+                      ". Error Message: ",
                       as.character(e)), error_file)
-    cat("ERROR :",  Message(e), "\n")
   })
 
 }
